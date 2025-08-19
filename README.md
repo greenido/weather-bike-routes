@@ -83,3 +83,16 @@ See inline comments in `src/services/scoringEngine.js` and the Help modal for de
 - `npm run build`: Production build
 - `npm run preview`: Preview built app
 - `npm run lint`: Run ESLint
+
+## Deploying to GitHub Pages
+
+This repo is configured to auto-deploy the Vite build to GitHub Pages on pushes to `master`.
+
+- The workflow is in `.github/workflows/deploy.yml`.
+- It builds with a base path of `/${repo}/` so assets work under project pages.
+- A `404.html` is generated from `index.html` so client-side routing works.
+
+Steps:
+1. Ensure your default branch is `master` or update the workflow trigger.
+2. In the repository settings, under Pages, set the source to “GitHub Actions”.
+3. Push to `master` (or trigger the workflow manually). The site will be published at `https://<user>.github.io/<repo>/`.
