@@ -37,7 +37,7 @@ jobs:
       - name: Build
         run: |
           npm run build -- --base=/${{ github.event.repository.name }}/
-          cp dist/index.html dist/404.html
+          cp -r dist/* dist/404.html
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
