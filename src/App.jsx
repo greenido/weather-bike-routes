@@ -157,6 +157,7 @@ function App() {
             onChange={(e) => setStartDateTime(e.target.value)}
             className="mt-1 w-full max-w-xs px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-500"
           />
+          <p className="text-sm text-gray-700 mt-2">Upload GPX routes to compare weather-based comfort scores. Pick the start date/time to use the right forecast.</p>
           <p className="text-xs text-gray-600 mt-1">Default is 24 hours from now. This determines which hourly forecast is used.</p>
         </div>
 
