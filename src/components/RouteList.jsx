@@ -1,3 +1,10 @@
+/*
+  File: src/components/RouteList.jsx
+  Purpose: Displays scored routes with quick stats and a small map preview.
+  What it does:
+  - Lists each route with name, score, weather conditions text, and a miniature map.
+  - Notifies parent via `onSelect` when a route is clicked.
+*/
 import ScoreBreakdown from './ScoreBreakdown.jsx'
 import MapPreview from './MapPreview.jsx'
 

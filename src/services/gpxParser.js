@@ -1,3 +1,13 @@
+/*
+  File: src/services/gpxParser.js
+  Purpose: Parse GPX files and derive route sampling and heading.
+  What it does:
+  - parseGpxFile(file): reads a GPX file via FileReader and returns a `gpxparser` instance.
+  - extractWaypointsAtInterval(gpx, intervalKm): downsamples the full track into representative points (first, interval, last).
+  - estimateRouteHeading(gpx): estimates overall route bearing (start→end) in degrees [0,360).
+  Inputs/Outputs:
+  - Functions accept the `gpxparser` object and return plain JS arrays/numbers suitable for weather lookups.
+*/
 import GPX from 'gpxparser'
 
 export function parseGpxFile(file) {

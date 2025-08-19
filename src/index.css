@@ -1,3 +1,7 @@
+/*
+  File: src/index.css
+  Purpose: Tailwind base and a couple of global layout utilities (full-height root, Leaflet size).
+*/
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

@@ -1,3 +1,10 @@
+/*
+  File: src/components/ScoreBreakdown.jsx
+  Purpose: Present the penalty contributions that form a route's final score.
+  What it does:
+  - Renders wind, temperature, humidity, and visibility penalty values with icons.
+  - Formats negatives as bonuses (prefixed with '+') and positives as penalties (prefixed with '-').
+*/
 import { Wind, Thermometer, Droplets, Eye } from 'lucide-react'
 
 export default function ScoreBreakdown({ breakdown }) {

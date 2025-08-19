@@ -1,3 +1,14 @@
+/*
+  File: src/services/scoringEngine.js
+  Purpose: Convert aggregated weather + route heading into a rider-friendly score and color.
+  What it does:
+  - calculateRouteScore(inputs): computes a 1–10 score taking wind, temperature, humidity, and visibility into account.
+  - colorForScore(score): maps score to a semantic color (green/orange/red) for UI emphasis.
+  Scoring model:
+  - Wind penalties scale with speed; headwinds magnify penalties; tailwinds grant a small bonus.
+  - Temperature outside 15–22°C reduces score; extreme heat (>40°C) clamps to 1.
+  - Higher humidity and lower visibility reduce score.
+*/
 export function calculateRouteScore({ windSpeed, windDirection, tempC, humidity, visibilityKm, routeHeading }) {
   let score = 10
 

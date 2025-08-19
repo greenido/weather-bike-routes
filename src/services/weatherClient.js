@@ -1,3 +1,14 @@
+/*
+  File: src/services/weatherClient.js
+  Purpose: Fetch and aggregate weather data from Visual Crossing for bike routes.
+  What it does:
+  - fetchWeatherForPoint(apiKey, lat, lon, dateIso): fetches hourly/day/current data, caches by day in IndexedDB, logs metadata.
+  - fetchAggregatedForRoute(apiKey, points, dateIso): samples each waypoint, selects the hour closest to target time (if provided),
+    then averages wind, temperature, humidity, and visibility across the route.
+  Notes:
+  - `dateIso` accepts YYYY-MM-DD or ISO datetime; when time is present, the closest hour is chosen.
+  - Caching is keyed by lat/lon (rounded) and date (day).
+*/
 import { getCachedWeather, setCachedWeather } from './cache'
 import { logEvent } from './logger'
 

@@ -1,3 +1,12 @@
+/*
+  File: src/components/LoggerPanel.jsx
+  Purpose: Developer utility panel to view runtime logs from `src/services/logger`.
+  What it does:
+  - Subscribes to the logger's in-memory stream and renders entries.
+  - Allows toggling visibility and clearing all logs.
+  Notes:
+  - Intended for development/debugging; safe to keep in production as it renders empty by default.
+*/
 import { useEffect, useState } from 'react'
 import { subscribe, clear } from '../services/logger'
 

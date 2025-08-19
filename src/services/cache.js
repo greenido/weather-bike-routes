@@ -1,3 +1,14 @@
+/*
+  File: src/services/cache.js
+  Purpose: Provide simple IndexedDB caching for weather responses and local storage for the API key.
+  What it does:
+  - Stores/retrieves Visual Crossing responses by (lat,lon,day) to reduce network calls.
+  - Persists the user's API key in localStorage.
+  Exports:
+  - getCachedWeather / setCachedWeather
+  - buildWeatherKey
+  - getStoredApiKey / setStoredApiKey
+*/
 import { openDB } from 'idb'
 
 const DB_NAME = 'weather-bike-routes-db'

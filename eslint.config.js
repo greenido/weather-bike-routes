@@ -1,3 +1,7 @@
+// File: eslint.config.js
+// Purpose: ESLint configuration for React + Vite project with React Hooks and Fast Refresh plugins.
+// Notes:
+// - Targets JS/JSX, ignores build output, and relaxes unused var rule for ALL_CAPS patterns.
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'

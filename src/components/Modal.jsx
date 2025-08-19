@@ -1,3 +1,10 @@
+/*
+  File: src/components/Modal.jsx
+  Purpose: Accessible portal-based modal component used for Settings and Help dialogs.
+  What it does:
+  - Renders children content in a centered dialog via React Portal into `document.body`.
+  - Supports a dimmed backdrop that closes the modal on click and an optional footer area.
+*/
 import { createPortal } from 'react-dom'
 
 export default function Modal({ title, open, onClose, children, footer }) {

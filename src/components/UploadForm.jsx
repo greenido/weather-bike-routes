@@ -1,3 +1,10 @@
+/*
+  File: src/components/UploadForm.jsx
+  Purpose: Drag-and-drop and file picker for GPX files.
+  What it does:
+  - Accepts `.gpx` files (multiple), then normalizes to an array and passes to `onFiles`.
+  - Supports drag-over/drop and a button-triggered hidden file input.
+*/
 import { useRef } from 'react'
 
 export default function UploadForm({ onFiles }) {

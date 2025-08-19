@@ -1,3 +1,13 @@
+/*
+  File: src/App.jsx
+  Purpose: Main application container wiring together data flow and UI.
+  What it does:
+  - Manages app state: API key, uploaded routes, selection, loading & errors.
+  - Orchestrates GPX parsing, waypoint sampling, weather fetching/aggregation, and scoring.
+  - Presents the UI: date/time selector, file upload, route list with scores, and map preview.
+  - Opens modals for Settings (API key) and Help (scoring explanation).
+  Key collaborators: `gpxParser`, `weatherClient`, `scoringEngine`, `cache`, `logger`, and UI components.
+*/
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import UploadForm from './components/UploadForm.jsx'

@@ -1,3 +1,10 @@
+/*
+  File: src/components/MapPreview.jsx
+  Purpose: Leaflet-based mini map to visualize a route polyline.
+  What it does:
+  - Renders OpenStreetMap tiles with a polyline representing the GPX path.
+  - Automatically fits bounds to the route via a small internal helper component.
+*/
 import { MapContainer, TileLayer, Polyline, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
