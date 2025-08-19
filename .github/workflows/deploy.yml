@@ -38,6 +38,7 @@ jobs:
         run: |
           npm run build -- --base=/${{ github.event.repository.name }}/
           cp dist/index.html dist/404.html
+          touch dist/.nojekyll
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
