@@ -104,6 +104,7 @@ See the header comment in `src/services/scoringEngine.js` and the Help modal for
 This repo is configured to auto-deploy the Vite build to GitHub Pages on pushes to `master`.
 
 - The workflow is in `.github/workflows/deploy.yml`. It runs lint and tests before building.
+- Pull requests run lint, tests, and a build in `.github/workflows/checks.yml`. Nothing is deployed from a pull request.
 - It builds with a base path of `/${repo}/` so assets work under project pages.
 - A `404.html` is generated from `index.html` so client-side routing works.
 
