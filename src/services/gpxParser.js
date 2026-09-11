@@ -7,8 +7,10 @@
   - Thins very dense tracks to about MAX_POINTS points so the map, chart, and analysis stay fast.
   - sampleStepKm(totalKm): weather sampling interval — every 5 km, stretched on long routes to cap the request size.
   - sampleByDistance(points, stepKm): indices of the sampled points (first and last are always included).
+  Notes:
+  - Parsing uses the browser's DOMParser. The app only needs coordinates and elevation, which doesn't need a
+    library; gpxparser, used before, is unmaintained and pulled jsdom 15 and its advisories into the dependencies.
 */
-import GPX from 'gpxparser'
 import { haversineKm } from './geo'
 
 const MAX_POINTS = 2000
@@ -20,10 +22,9 @@ export function parseGpxFile(file) {
 }
 
 export function parseGpxText(text) {
-  const gpx = new GPX()
-  gpx.parse(text)
-  const trackPoints = gpx.tracks.flatMap((track) => track.points)
-  const raw = (trackPoints.length ? trackPoints : gpx.routes.flatMap((route) => route.points))
+  const doc = new DOMParser().parseFromString(text, 'application/xml')
+  const trackPoints = readPoints(doc, 'trkpt')
+  const raw = (trackPoints.length ? trackPoints : readPoints(doc, 'rtept'))
     .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon))
   if (raw.length < 2) throw new Error('No track or route points found')
 
@@ -63,4 +64,13 @@ function thinByDistance(points, minKm) {
   }
   kept.push(points.at(-1))
   return kept
+}
+
+// In document order, so a file's tracks and segments join in the order they appear. Missing values become NaN.
+function readPoints(doc, tag) {
+  return Array.from(doc.getElementsByTagName(tag), (el) => ({
+    lat: parseFloat(el.getAttribute('lat')),
+    lon: parseFloat(el.getAttribute('lon')),
+    ele: parseFloat(el.getElementsByTagName('ele')[0]?.textContent),
+  }))
 }

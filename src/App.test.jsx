@@ -3,7 +3,7 @@
   End-to-end checks of the app in a simulated browser: upload routes, get forecasts, rank, select, errors, Help,
   and the guided tour. The real analysis, scoring, and weather code run; only these are replaced:
   - the network (`fetch`), with forecasts that are 18°C below latitude 46 and 33°C above it;
-  - GPX parsing (covered by gpxParser.test.js; gpxparser can't load in a DOM test environment);
+  - GPX parsing (covered by gpxParser.test.js), so routes can be built from fixtures;
   - the Leaflet map, which needs a real layout engine.
 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'

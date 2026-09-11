@@ -1,3 +1,5 @@
+// @vitest-environment happy-dom
+// Parsing uses the browser's DOMParser, so these tests run in a simulated browser.
 import { describe, expect, it } from 'vitest'
 import { parseGpxText, sampleByDistance, sampleStepKm } from './gpxParser'
 
@@ -38,6 +40,22 @@ describe('parseGpxText', () => {
   it('keeps points on the equator and the prime meridian', () => {
     const route = parseGpxText(gpx(track([[0, 0, 5], [0, 0.01, 5], [0.01, 0.01, 5]])))
     expect(route.points).toHaveLength(3)
+  })
+
+  it('reads GPX 1.0 files and files without a namespace', () => {
+    const points = [[45, 7, 200], [45, 7.01, 210]]
+    const gpx10 = `<?xml version="1.0"?><gpx version="1.0" xmlns="http://www.topografix.com/GPX/1/0">${track(points)}</gpx>`
+    expect(parseGpxText(gpx10).points.map((p) => p.ele)).toEqual([200, 210])
+    expect(parseGpxText(`<gpx>${track(points)}</gpx>`).points).toHaveLength(2)
+  })
+
+  it('ignores waypoints and device extensions', () => {
+    const withExtras = `<wpt lat="46" lon="8"><ele>999</ele></wpt><trk><trkseg>
+      <trkpt lat="45" lon="7"><ele>100</ele><extensions><gpxtpx:TrackPointExtension xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1"><gpxtpx:hr>140</gpxtpx:hr></gpxtpx:TrackPointExtension></extensions></trkpt>
+      <trkpt lat="45" lon="7.01"><ele>101</ele></trkpt>
+    </trkseg></trk>`
+    const route = parseGpxText(gpx(withExtras))
+    expect(route.points.map((p) => [p.lat, p.lon, p.ele])).toEqual([[45, 7, 100], [45, 7.01, 101]])
   })
 
   it('stores missing elevation as null', () => {
