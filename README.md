@@ -20,7 +20,7 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 
 - UI: React 19 + Vite + Tailwind CSS
 - Maps: `react-leaflet` + `leaflet`
-- GPX parsing: `gpxparser`
+- GPX parsing: the browser's `DOMParser` (no library)
 - Caching: `idb` (IndexedDB)
 - Weather APIs: Open-Meteo Forecast API (default), Visual Crossing Timeline API (optional)
 - Guided tour: `react-joyride`, loaded only when a tour runs
@@ -101,7 +101,7 @@ See the header comment in `src/services/scoringEngine.js` and the Help dialog (`
 - `npm run build`: Production build
 - `npm run preview`: Preview built app
 - `npm run lint`: Run ESLint
-- `npm test`: Run all tests (Vitest). Service tests run in Node. Component and app tests (`*.test.jsx`) run in a simulated browser via `// @vitest-environment happy-dom` at the top of the file. The app tests replace only the network, GPX parsing, and the Leaflet map, because gpxparser sets up its own jsdom and can't load in a DOM test environment. Shared test routes live in `src/test/fixtures.js`.
+- `npm test`: Run all tests (Vitest). Service tests run in Node. Component and app tests (`*.test.jsx`), and the GPX parser tests (which need `DOMParser`), run in a simulated browser via `// @vitest-environment happy-dom` at the top of the file. The app tests replace only the network, GPX parsing (tested on its own), and the Leaflet map. Shared test routes live in `src/test/fixtures.js`.
 
 ## Deploying to GitHub Pages
 
