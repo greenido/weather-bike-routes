@@ -4,7 +4,7 @@
   What it does:
   - Enriches log entries with id and ISO timestamp.
   - Outputs categorized messages to the console for key events.
-  - Publishes entries to subscribers so the UI (e.g., `LoggerPanel`) can render them.
+  - Publishes entries to subscribers so a UI (e.g., a developer log panel) can render them.
   Exports:
   - logEvent(entry): enrich + console log + publish to subscribers.
   - subscribe(callback): subscribe to log stream; returns unsubscribe.
