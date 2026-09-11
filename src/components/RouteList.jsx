@@ -15,7 +15,7 @@ import { formatTime } from '../services/format'
 export default function RouteList({ routes, selectedId, onSelect, isLoading }) {
   if (!routes?.length) return null
   return (
-    <ul className="mt-6 space-y-4" aria-label="Routes, best score first">
+    <ul className="mt-6 space-y-4" aria-label="Routes, best score first" data-tour="routes">
       {routes.map((route) => {
         const { analysis } = route
         const selected = route.id === selectedId

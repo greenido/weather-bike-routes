@@ -1,15 +1,16 @@
 // @vitest-environment happy-dom
 /*
-  End-to-end checks of the app in a simulated browser: upload routes, get forecasts, rank, select, and errors.
-  The real analysis, scoring, and weather code run; only these are replaced:
+  End-to-end checks of the app in a simulated browser: upload routes, get forecasts, rank, select, errors, Help,
+  and the guided tour. The real analysis, scoring, and weather code run; only these are replaced:
   - the network (`fetch`), with forecasts that are 18°C below latitude 46 and 33°C above it;
   - GPX parsing (covered by gpxParser.test.js; gpxparser can't load in a DOM test environment);
   - the Leaflet map, which needs a real layout engine.
 */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App.jsx'
+import { TOUR_STORAGE_KEY } from './components/GuidedTour.jsx'
 import { parseGpxFile } from './services/gpxParser'
 import { makeRoute } from './test/fixtures'
 
@@ -62,6 +63,8 @@ const forecast = async (url) => jsonResponse(url.includes('visualcrossing.com') 
 const gpxFile = (name) => new File(['<gpx></gpx>'], name, { type: 'application/gpx+xml' })
 const fileInput = () => document.querySelector('input[type="file"]')
 const cardLabels = () => screen.getAllByRole('button', { name: /out of 10$/ }).map((card) => card.getAttribute('aria-label'))
+const tourStep = (title) => screen.findByRole('alertdialog', { name: title })
+const tourEnded = () => waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
 let fetchMock
 
 async function renderWithRoutes(...names) {
@@ -73,6 +76,7 @@ async function renderWithRoutes(...names) {
 
 beforeEach(() => {
   localStorage.clear()
+  localStorage.setItem(TOUR_STORAGE_KEY, 'done') // A returning visitor; the tour has its own tests below.
   fetchMock = vi.fn(forecast)
   vi.stubGlobal('fetch', fetchMock)
   vi.spyOn(console, 'info').mockImplementation(() => {})
@@ -160,5 +164,77 @@ describe('App', () => {
     await screen.findByRole('button', { name: 'river-loop.gpx, score 10.0 out of 10' })
     // The route has three forecast points: one Visual Crossing request each, and none to Open-Meteo.
     expect(fetchMock.mock.calls.map(([url]) => new URL(url).host)).toEqual(Array(3).fill('weather.visualcrossing.com'))
+  })
+
+  it('explains the app in Help and replays the tour from there', async () => {
+    const user = await renderWithRoutes('river-loop.gpx')
+    await screen.findByRole('button', { name: /out of 10$/ })
+    await user.click(screen.getByRole('button', { name: 'Help' }))
+    const help = screen.getByRole('dialog', { name: 'Help' })
+    expect(within(help).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
+      'How to use it', 'Reading a route', 'How the score works', 'Where the forecast comes from', 'Your privacy',
+    ])
+    expect(within(help).getByRole('list', { name: 'Temperature colors' })).toBeTruthy()
+
+    await user.click(within(help).getByRole('button', { name: 'Take the tour' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    await tourStep('Welcome to Bike Route Weather')
+    // A route is scored, so the replay includes the route steps: 4 setup + 4 route + 2 top bar.
+    await user.click(screen.getByRole('button', { name: 'Next (1 of 10)' }))
+    await tourStep('When you set off')
+    await user.click(screen.getByRole('button', { name: 'Skip tour' }))
+    await tourEnded()
+    expect(localStorage.getItem(TOUR_STORAGE_KEY)).toBe('done')
+    // Focus goes back to where it was before the tour, like after a dialog.
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Help' }))
+  })
+})
+
+describe('Guided tour', () => {
+  beforeEach(() => localStorage.removeItem(TOUR_STORAGE_KEY))
+
+  async function clickThrough(user, titles) {
+    for (const title of titles) {
+      await user.click(screen.getByRole('button', { name: /^Next/ }))
+      await tourStep(title)
+    }
+    await user.click(screen.getByRole('button', { name: 'Done' }))
+    await tourEnded()
+  }
+
+  it('walks a first-time visitor through the setup, then through their first scored route', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await tourStep('Welcome to Bike Route Weather')
+    expect(screen.getByRole('button', { name: 'Next (1 of 6)' })).toBeTruthy()
+    await clickThrough(user, ['When you set off', 'How fast you ride', 'Add your routes', 'Where the forecast comes from', 'Help, any time'])
+    expect(localStorage.getItem(TOUR_STORAGE_KEY)).toBe('intro-done')
+
+    await user.upload(fileInput(), gpxFile('river-loop.gpx'))
+    await tourStep('Best route first')
+    await clickThrough(user, ['What to wear or bring', 'Temperature along the route', 'Every point of the ride'])
+    expect(localStorage.getItem(TOUR_STORAGE_KEY)).toBe('done')
+  })
+
+  it('stops for good when skipped', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await tourStep('Welcome to Bike Route Weather')
+    await user.click(screen.getByRole('button', { name: 'Skip tour' }))
+    await tourEnded()
+    expect(localStorage.getItem(TOUR_STORAGE_KEY)).toBe('done')
+
+    await user.upload(fileInput(), gpxFile('river-loop.gpx'))
+    await screen.findByRole('button', { name: /out of 10$/ })
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+  })
+
+  it('ends on Escape', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    await tourStep('Welcome to Bike Route Weather')
+    await user.keyboard('{Escape}')
+    await tourEnded()
+    expect(localStorage.getItem(TOUR_STORAGE_KEY)).toBe('done')
   })
 })

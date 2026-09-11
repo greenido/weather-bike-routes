@@ -7,7 +7,8 @@
     Changing the start time, speed, or weather provider re-runs the analysis after a short pause, and a newer
     run cancels the one in flight, so a slow, stale response can never overwrite a fresh one.
   - Presents the UI: ride settings, file upload, ranked route list, and the selected route's temperature detail.
-  - Opens modals for Settings (optional Visual Crossing key) and Help (scoring explanation).
+  - Opens modals for Settings (optional Visual Crossing key) and Help, which can replay the guided tour that
+    first-time users see (`GuidedTour`).
   Key collaborators: `gpxParser`, `routeAnalysis`, `cache`, `logger`, and UI components.
 */
 import { useEffect, useMemo, useState } from 'react'
@@ -17,6 +18,8 @@ import RouteList from './components/RouteList.jsx'
 import RouteDetail from './components/RouteDetail.jsx'
 import TopNav from './components/TopNav.jsx'
 import Modal from './components/Modal.jsx'
+import HelpContent from './components/HelpContent.jsx'
+import GuidedTour from './components/GuidedTour.jsx'
 import { parseGpxFile } from './services/gpxParser'
 import { analyzeRoute } from './services/routeAnalysis'
 import { getStoredApiKey, setStoredApiKey } from './services/cache'
@@ -47,6 +50,7 @@ function App() {
   const [uploadError, setUploadError] = useState('')
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isHelpOpen, setIsHelpOpen] = useState(false)
+  const [isTourReplay, setIsTourReplay] = useState(false)
 
   const startMs = useMemo(() => new Date(startDateTime).getTime(), [startDateTime])
 
@@ -114,13 +118,18 @@ function App() {
     setIsSettingsOpen(false)
   }
 
+  function takeTour() {
+    setIsHelpOpen(false)
+    setIsTourReplay(true)
+  }
+
   return (
     <div>
       <TopNav onOpenSettings={openSettings} onOpenHelp={() => setIsHelpOpen(true)} />
       <main className="max-w-6xl mx-auto px-6 py-8">
         <div className="mb-4">
           <div className="flex flex-wrap items-end gap-x-10 gap-y-4">
-            <label className="block text-sm font-medium">
+            <label className="block text-sm font-medium" data-tour="start-time">
               Start date & time
               <input
                 type="datetime-local"
@@ -129,7 +138,7 @@ function App() {
                 className="mt-1 block w-full max-w-xs px-3 py-2 border rounded-md font-normal focus:ring-2 focus:ring-blue-500"
               />
             </label>
-            <label className="block text-sm font-medium">
+            <label className="block text-sm font-medium" data-tour="speed">
               Average speed: {speedKph} km/h
               <input
                 type="range"
@@ -146,7 +155,9 @@ function App() {
           <p className="text-xs text-gray-600 mt-1">Default start is 24 hours from now. Forecasts reach up to {MAX_DAYS_AHEAD} days ahead.</p>
         </div>
 
-        <UploadForm onFiles={handleFiles} />
+        <div data-tour="upload">
+          <UploadForm onFiles={handleFiles} />
+        </div>
 
         {uploadError && <p className="text-red-600 mt-3" role="alert">{uploadError}</p>}
         {error && <p className="text-red-600 mt-3" role="alert">{error}</p>}
@@ -193,22 +204,20 @@ function App() {
       </Modal>
 
       <Modal
-        title="Help: How scoring works"
+        title="Help"
         open={isHelpOpen}
         onClose={() => setIsHelpOpen(false)}
         footer={(
-          <button className="px-3 py-1.5 text-sm rounded-md border" onClick={() => setIsHelpOpen(false)}>Close</button>
+          <>
+            <button className="px-3 py-1.5 text-sm rounded-md border" onClick={() => setIsHelpOpen(false)}>Close</button>
+            <button className="px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white" onClick={takeTour}>Take the tour</button>
+          </>
         )}
       >
-        <p>Each route gets a score from 1 to 10. Higher is better. The weather at every point is the forecast for the time you'll get there.</p>
-        <ul className="list-disc pl-5 space-y-1">
-          <li><b>Wind</b>: Average wind over 15 km/h costs 1.5 points (2.5 over 25, 3 over 35, 4 over 45). If it's mostly in your face, that grows up to ×1.8. A steady tailwind gives up to +1.5. Gusts over 40 km/h cost 1 more point, over 55 km/h 2 more.</li>
-          <li><b>Temperature</b>: Uses the feels-like temperature, which already accounts for humidity and wind chill. 15–22°C is ideal. Below 15 costs 1 point (2 under 10, 3 under 5); above 22 costs 1 (2 over 30, 3 over 35). Every km of the ride counts. Feeling above 40°C on average is a no‑go.</li>
-          <li><b>Rain</b>: The highest chance of rain during the ride. 15% or more costs 1 point, 30% costs 2, 50% costs 3, 70% costs 4.</li>
-          <li><b>Visibility</b>: Below 10 km costs 1 point, below 5 km 2 points, below 2 km 3 points.</li>
-        </ul>
-        <p className="text-xs text-gray-600">Forecasts are sampled about every 5 km. Headwind is worked out for each stretch of road, so loops and out-and-back rides are judged fairly.</p>
+        <HelpContent />
       </Modal>
+
+      <GuidedTour hasResults={Boolean(selected?.analysis)} replayRequested={isTourReplay} onReplayDone={() => setIsTourReplay(false)} />
     </div>
   )
 }
