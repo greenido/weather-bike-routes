@@ -1,70 +1,66 @@
 /*
   File: src/services/gpxParser.js
-  Purpose: Parse GPX files and derive route sampling and heading.
+  Purpose: Parse GPX files into a normalized route and pick the points where weather is sampled.
   What it does:
-  - parseGpxFile(file): reads a GPX file via FileReader and returns a `gpxparser` instance.
-  - extractWaypointsAtInterval(gpx, intervalKm): downsamples the full track into representative points (first, interval, last).
-  - estimateRouteHeading(gpx): estimates overall route bearing (start→end) in degrees [0,360).
-  Inputs/Outputs:
-  - Functions accept the `gpxparser` object and return plain JS arrays/numbers suitable for weather lookups.
+  - parseGpxFile(file) / parseGpxText(text): reads <trk> points (or <rte> points when a file has no track) into
+    { points: [{ lat, lon, ele, km }], totalKm, sampleIdx }, where km is the distance from the start.
+  - Thins very dense tracks to about MAX_POINTS points so the map, chart, and analysis stay fast.
+  - sampleStepKm(totalKm): weather sampling interval — every 5 km, stretched on long routes to cap the request size.
+  - sampleByDistance(points, stepKm): indices of the sampled points (first and last are always included).
 */
 import GPX from 'gpxparser'
+import { haversineKm } from './geo'
+
+const MAX_POINTS = 2000
+const MAX_SAMPLES = 40
+const MIN_STEP_KM = 5
 
 export function parseGpxFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onerror = () => reject(new Error('Failed to read GPX file'))
-    reader.onload = () => {
-      try {
-        const gpx = new GPX()
-        gpx.parse(reader.result)
-        resolve(gpx)
-      } catch (error) {
-        reject(error)
-      }
-    }
-    reader.readAsText(file)
+  return file.text().then(parseGpxText)
+}
+
+export function parseGpxText(text) {
+  const gpx = new GPX()
+  gpx.parse(text)
+  const trackPoints = gpx.tracks.flatMap((track) => track.points)
+  const raw = (trackPoints.length ? trackPoints : gpx.routes.flatMap((route) => route.points))
+    .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lon))
+  if (raw.length < 2) throw new Error('No track or route points found')
+
+  let km = 0
+  const all = raw.map((p, i) => {
+    if (i > 0) km += haversineKm(raw[i - 1], p)
+    return { lat: p.lat, lon: p.lon, ele: Number.isFinite(p.ele) ? p.ele : null, km }
   })
+  const points = all.length > MAX_POINTS ? thinByDistance(all, km / MAX_POINTS) : all
+  return { points, totalKm: km, sampleIdx: sampleByDistance(points, sampleStepKm(km)) }
 }
 
-export function extractWaypointsAtInterval(gpx, intervalKm = 10) {
-  const tracks = gpx.tracks || []
-  const points = []
-  for (const track of tracks) {
-    for (const segment of track.points ? [track] : track?.segments || []) {
-      const segPoints = segment.points || segment
-      for (const p of segPoints) {
-        if (p.lat && p.lon) points.push({ lat: p.lat, lon: p.lon })
-      }
+export function sampleStepKm(totalKm) {
+  return Math.max(MIN_STEP_KM, totalKm / MAX_SAMPLES)
+}
+
+export function sampleByDistance(points, stepKm) {
+  const last = points.length - 1
+  const indices = [0]
+  let nextKm = stepKm
+  for (let i = 1; i < last; i++) {
+    if (points[i].km >= nextKm) {
+      indices.push(i)
+      nextKm = points[i].km + stepKm
     }
   }
-  if (points.length === 0) return []
-
-  // Take first, interval, last
-  const sampled = []
-  const step = Math.max(1, Math.floor(points.length / Math.max(1, Math.floor((gpx.distance || 0) / (intervalKm * 1000)))))
-  for (let i = 0; i < points.length; i += step) sampled.push(points[i])
-  if (sampled[sampled.length - 1] !== points[points.length - 1]) sampled.push(points[points.length - 1])
-  return sampled
+  // A sample just before the finish adds a request without adding information.
+  if (indices.length > 1 && points[last].km - points[indices.at(-1)].km < stepKm / 3) indices.pop()
+  indices.push(last)
+  return indices
 }
 
-export function estimateRouteHeading(gpx) {
-  const tracks = gpx.tracks || []
-  for (const track of tracks) {
-    const pts = track.points || track?.segments?.[0]?.points || []
-    if (pts.length >= 2) {
-      const start = pts[0]
-      const end = pts[pts.length - 1]
-      const dLon = (end.lon - start.lon) * Math.PI / 180
-      const lat1 = start.lat * Math.PI / 180
-      const lat2 = end.lat * Math.PI / 180
-      const y = Math.sin(dLon) * Math.cos(lat2)
-      const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon)
-      const brng = Math.atan2(y, x) * 180 / Math.PI
-      return (brng + 360) % 360
-    }
+function thinByDistance(points, minKm) {
+  const kept = [points[0]]
+  for (let i = 1; i < points.length - 1; i++) {
+    if (points[i].km - kept.at(-1).km >= minKm) kept.push(points[i])
   }
-  return 0
+  kept.push(points.at(-1))
+  return kept
 }
-
-

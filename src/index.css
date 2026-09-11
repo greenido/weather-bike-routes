@@ -6,11 +6,28 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #root {
+/* #root gets min-h-screen in index.html; a fixed 100% height would cut its background off on long pages. */
+html, body {
   height: 100%;
 }
 
 .leaflet-container {
   width: 100%;
   height: 100%;
+}
+
+/* Muted basemap so the temperature colors on the route stand out. */
+.route-map {
+  background: #f1f5f9;
+}
+
+.route-map .leaflet-tile-pane {
+  filter: grayscale(1) contrast(0.85) brightness(1.08);
+  opacity: 0.75;
+}
+
+.leaflet-tooltip.route-label {
+  padding: 2px 6px;
+  font-size: 12px;
+  font-weight: 500;
 }
