@@ -22,7 +22,7 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - GPX parsing: `gpxparser`
 - Caching: `idb` (IndexedDB)
 - Weather APIs: Open-Meteo Forecast API (default), Visual Crossing Timeline API (optional)
-- Tests: Vitest
+- Tests: Vitest, with React Testing Library and happy-dom for the UI
 
 ### Key modules
 
@@ -97,7 +97,7 @@ See the header comment in `src/services/scoringEngine.js` and the Help modal for
 - `npm run build`: Production build
 - `npm run preview`: Preview built app
 - `npm run lint`: Run ESLint
-- `npm test`: Run the unit tests (Vitest)
+- `npm test`: Run all tests (Vitest). Service tests run in Node. Component and app tests (`*.test.jsx`) run in a simulated browser via `// @vitest-environment happy-dom` at the top of the file. The app tests replace only the network, GPX parsing, and the Leaflet map, because gpxparser sets up its own jsdom and can't load in a DOM test environment. Shared test routes live in `src/test/fixtures.js`.
 
 ## Deploying to GitHub Pages
 
