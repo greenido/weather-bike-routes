@@ -4,7 +4,8 @@
   What it does:
   - fetchForecasts(points, startMs, endMs, { apiKey, signal }): one normalized hourly series per point, covering the
     ride. Open-Meteo needs no key and answers for all points in one request. When a Visual Crossing API key is set,
-    Visual Crossing is used instead (one request per point, 4 at a time).
+    Visual Crossing is used instead: one request per point, one at a time across the whole app, because plans cap
+    how many requests an account can run at once. A 429 from it is retried twice, 2 and 5 seconds apart.
   - conditionsAt(series, ms): conditions at an exact moment, interpolated between the surrounding hours
     (wind is interpolated as a vector so 350° and 10° blend to 0°, not 180°).
   - Series are cached in IndexedDB for a couple of hours (see cache.js); requests can be cancelled with an AbortSignal.
@@ -23,7 +24,9 @@ const OPEN_METEO_FIELDS = [
   'wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m', 'visibility',
 ]
 export const MAX_DAYS_AHEAD = 15
-const VISUAL_CROSSING_CONCURRENCY = 4
+const VISUAL_CROSSING_CONCURRENCY = 1
+// Visual Crossing allows retrying a 429 once other requests finish, but not aggressive retry loops.
+const VISUAL_CROSSING_RETRY_DELAYS_MS = [2000, 5000]
 const HOUR_MS = 60 * 60 * 1000
 const DAY_MS = 24 * HOUR_MS
 const CLEAR_VISIBILITY_KM = 20
@@ -31,6 +34,9 @@ const CLEAR_VISIBILITY_KM = 20
 const round3 = (value) => Math.round(value * 1000) / 1000
 const utcDate = (ms) => new Date(ms).toISOString().slice(0, 10)
 const toRad = (deg) => (deg * Math.PI) / 180
+
+// Every route loads at the same time, so all Visual Crossing requests share one queue.
+const visualCrossingQueue = createQueue(VISUAL_CROSSING_CONCURRENCY)
 
 export async function fetchForecasts(points, startMs, endMs, { apiKey = '', signal } = {}) {
   const provider = apiKey ? 'Visual Crossing' : 'Open-Meteo'
@@ -50,16 +56,41 @@ export async function fetchForecasts(points, startMs, endMs, { apiKey = '', sign
   })
   const fetched = new Map()
   if (pending.size) {
-    const pendingCoords = [...pending.values()]
+    const entries = [...pending]
     const results = apiKey
-      ? await mapLimit(pendingCoords, VISUAL_CROSSING_CONCURRENCY, (c) => fetchVisualCrossing(apiKey, c, startDate, endDate, signal))
-      : await fetchOpenMeteo(pendingCoords, startDate, endDate, signal)
-    ;[...pending.keys()].forEach((key, n) => {
+      ? await fetchVisualCrossingPoints(entries, apiKey, startDate, endDate, signal)
+      : await fetchOpenMeteo(entries.map(([, coord]) => coord), startDate, endDate, signal)
+    entries.forEach(([key], n) => {
       fetched.set(key, results[n])
-      setCachedForecast(key, results[n])
+      if (!apiKey) setCachedForecast(key, results[n])
     })
   }
   return cached.map((series, i) => series || fetched.get(keys[i]))
+}
+
+// Queues one request per point and caches each result as it arrives. If one point fails, the route fails, so the
+// rest of its queued requests are dropped instead of spent.
+async function fetchVisualCrossingPoints(entries, apiKey, startDate, endDate, signal) {
+  const batch = new AbortController()
+  const forwardAbort = () => batch.abort(signal.reason)
+  if (signal?.aborted) forwardAbort()
+  else signal?.addEventListener('abort', forwardAbort, { once: true })
+  try {
+    return await Promise.all(entries.map(([key, coord]) => visualCrossingQueue(async () => {
+      batch.signal.throwIfAborted()
+      // Another route may have fetched this point while the request waited in the queue (a shared start, say).
+      const cached = await getCachedForecast(key)
+      if (cached) return cached
+      const series = await fetchVisualCrossing(apiKey, coord, startDate, endDate, batch.signal)
+      await setCachedForecast(key, series)
+      return series
+    })))
+  } catch (err) {
+    batch.abort()
+    throw err
+  } finally {
+    signal?.removeEventListener('abort', forwardAbort)
+  }
 }
 
 async function fetchOpenMeteo(coords, startDate, endDate, signal) {
@@ -82,31 +113,63 @@ async function fetchVisualCrossing(apiKey, coord, startDate, endDate, signal) {
   const from = Date.parse(`${startDate}T00:00:00Z`) / 1000
   const to = Date.parse(`${endDate}T23:59:59Z`) / 1000
   const params = new URLSearchParams({ unitGroup: 'metric', include: 'hours', key: apiKey })
-  const json = await requestJson(`${VISUAL_CROSSING_URL}/${coord.lat},${coord.lon}/${from}/${to}?${params}`, 'Visual Crossing', signal)
+  const url = `${VISUAL_CROSSING_URL}/${coord.lat},${coord.lon}/${from}/${to}?${params}`
+  const json = await requestJson(url, 'Visual Crossing', signal, VISUAL_CROSSING_RETRY_DELAYS_MS)
   return fromVisualCrossing(json)
 }
 
-async function requestJson(url, provider, signal) {
-  const startedAt = Date.now()
-  let res
-  try {
-    res = await fetch(url, { signal })
-  } catch (err) {
-    if (err?.name === 'AbortError') throw err
-    throw new Error(`Couldn't reach ${provider}. Check your connection and try again.`)
-  }
-  logEvent({ type: 'weather:fetch', provider, status: res.status, durationMs: Date.now() - startedAt })
-  if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    let reason = body
+// A 429 is retried after each delay in `retryDelaysMs` (none by default), then reported in plain words.
+async function requestJson(url, provider, signal, retryDelaysMs = []) {
+  for (let attempt = 0; ; attempt++) {
+    const startedAt = Date.now()
+    let res
     try {
-      reason = JSON.parse(body).reason || body
-    } catch {
-      // Visual Crossing answers errors in plain text.
+      res = await fetch(url, { signal })
+    } catch (err) {
+      if (err?.name === 'AbortError') throw err
+      throw new Error(`Couldn't reach ${provider}. Check your connection and try again.`)
     }
-    throw new Error(`${provider} request failed (${res.status})${reason ? `: ${String(reason).slice(0, 200)}` : ''}`)
+    logEvent({ type: 'weather:fetch', provider, status: res.status, durationMs: Date.now() - startedAt })
+    if (res.ok) return res.json()
+    const reason = await errorReason(res)
+    if (res.status !== 429) throw new Error(`${provider} request failed (${res.status})${reason ? `: ${reason}` : ''}`)
+    if (attempt >= retryDelaysMs.length) throw new Error(tooManyRequestsMessage(provider, reason))
+    await wait(retryDelaysMs[attempt], signal)
   }
-  return res.json()
+}
+
+async function errorReason(res) {
+  const body = await res.text().catch(() => '')
+  let reason = body
+  try {
+    reason = JSON.parse(body).reason || body
+  } catch {
+    // Visual Crossing answers errors in plain text.
+  }
+  return String(reason).slice(0, 200)
+}
+
+function tooManyRequestsMessage(provider, reason) {
+  const detail = reason.trim()
+  const parts = [`${provider} is limiting requests right now${detail ? `: ${detail.replace(/\.?$/, '.')}` : '.'}`]
+  if (provider === 'Visual Crossing') parts.push('Wait a minute and try again, or clear the key in Settings to use Open-Meteo.')
+  else if (!detail) parts.push('Wait a minute and try again.') // Open-Meteo's reason already says when to retry.
+  return parts.join(' ')
+}
+
+function wait(ms, signal) {
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      clearTimeout(timer)
+      reject(signal.reason)
+    }
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    if (signal?.aborted) onAbort()
+    else signal?.addEventListener('abort', onAbort, { once: true })
+  })
 }
 
 export function fromOpenMeteo(location) {
@@ -182,15 +245,22 @@ export function conditionsAt(series, ms) {
   }
 }
 
-async function mapLimit(items, limit, fn) {
-  const results = new Array(items.length)
-  let next = 0
-  async function worker() {
-    while (next < items.length) {
-      const i = next++
-      results[i] = await fn(items[i], i)
+// Runs queued tasks (functions returning promises) at most `limit` at a time, in the order they were queued.
+function createQueue(limit) {
+  let active = 0
+  const waiting = []
+  function next() {
+    while (active < limit && waiting.length) {
+      const { task, resolve, reject } = waiting.shift()
+      active++
+      Promise.resolve().then(task).then(resolve, reject).finally(() => {
+        active--
+        next()
+      })
     }
   }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
-  return results
+  return (task) => new Promise((resolve, reject) => {
+    waiting.push({ task, resolve, reject })
+    next()
+  })
 }
