@@ -6,6 +6,7 @@
     and short "what to wear or bring" advice.
   - Temperature legend, the colored route map, and the distance profile. Pointing at either the map or the
     chart highlights the same spot in both (shared `hoverIndex`).
+  - `data-tour` attributes mark what the guided tour points at; Help reuses `TemperatureLegend`.
 */
 import { useState } from 'react'
 import { Shirt } from 'lucide-react'
@@ -36,7 +37,7 @@ export default function RouteDetail({ route }) {
         <Stat label="In comfort band" value={`${Math.round(summary.comfortShare * 100)}%`} detail="of the ride at 15–22°C" />
       </div>
 
-      <ul className="mt-4 space-y-1 text-sm text-gray-700">
+      <ul className="mt-4 space-y-1 text-sm text-gray-700" data-tour="tips">
         {rideAdvice(timeline, summary, formatTime).map((tip) => (
           <li key={tip} className="flex gap-2">
             <Shirt size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-gray-500" />
@@ -49,10 +50,11 @@ export default function RouteDetail({ route }) {
         <span className="text-sm text-gray-700">Temperature when you reach each point (°C)</span>
         <TemperatureLegend />
       </div>
-      <div className="h-96 rounded-xl overflow-hidden border">
+      {/* `isolate` keeps Leaflet's layers (z-index 400–1000) under the sticky top bar and the tour. */}
+      <div className="h-96 rounded-xl overflow-hidden border isolate" data-tour="map">
         <MapPreview timeline={timeline} summary={summary} hoverIndex={hoverIndex} onHover={setHoverIndex} />
       </div>
-      <div className="mt-4 rounded-xl border bg-white p-3">
+      <div className="mt-4 rounded-xl border bg-white p-3" data-tour="profile">
         <RouteProfile timeline={timeline} sampleIdx={route.sampleIdx} hoverIndex={hoverIndex} onHover={setHoverIndex} />
       </div>
     </section>
@@ -69,7 +71,7 @@ function Stat({ label, value, detail }) {
   )
 }
 
-function TemperatureLegend() {
+export function TemperatureLegend() {
   return (
     <ul className="flex gap-0.5 text-[11px] text-gray-500 text-center" aria-label="Temperature colors">
       {TEMP_COLORS.map((color, i) => (

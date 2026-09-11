@@ -14,6 +14,7 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - Scoring that accounts for wind direction on each stretch of road, gusts, feels-like temperature over the whole ride, chance of rain, and visibility
 - Route list sorted by score, with a temperature-colored sketch of each route and the score breakdown
 - IndexedDB forecast cache (2 hours) so changing the start time or speed doesn't refetch
+- Guided tour for first-time visitors: first the ride settings, upload, Settings, and Help, then the results the first time a route is scored. Help can replay it, and explains how to use the app, how to read a route, the exact scoring numbers, where forecasts come from, and what leaves the browser
 
 ## Architecture
 
@@ -22,7 +23,8 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - GPX parsing: `gpxparser`
 - Caching: `idb` (IndexedDB)
 - Weather APIs: Open-Meteo Forecast API (default), Visual Crossing Timeline API (optional)
-- Tests: Vitest
+- Guided tour: `react-joyride`, loaded only when a tour runs
+- Tests: Vitest, with React Testing Library and happy-dom for the UI
 
 ### Key modules
 
@@ -35,7 +37,9 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - `src/components/RouteProfile.jsx`: Temperature and elevation chart with crosshair, keyboard support, and table view
 - `src/components/ScoreBreakdown.jsx`: Penalty breakdown with icons
 - `src/components/TopNav.jsx`: Sticky header with Settings & Help actions
-- `src/components/Modal.jsx`: Accessible portal-based dialog used by Settings/Help
+- `src/components/Modal.jsx`: Accessible portal-based dialog used by Settings/Help; long content scrolls
+- `src/components/HelpContent.jsx`: What the Help dialog says
+- `src/components/GuidedTour.jsx`: The first-run tour: its steps, when each part runs, and progress saved in localStorage. Steps point at `data-tour` attributes
 - `src/services/gpxParser.js`: GPX parsing, cumulative distance, and where to sample forecasts (about every 5 km)
 - `src/services/routeAnalysis.js`: Arrival times, weather at every point of the ride, ride summary, and tips
 - `src/services/weatherClient.js`: Fetches and normalizes forecasts from either provider; interpolates to any time
@@ -59,7 +63,7 @@ npm install
 npm run dev
 ```
 
-3. Open the app at the URL shown in the terminal.
+3. Open the app at the URL shown in the terminal. On the first visit, a short tour shows you around; Help can replay it.
 
 4. Upload one or more `.gpx` files, adjust the start date/time (default is 24h from now) and your average speed, and review the scores.
 
@@ -82,7 +86,7 @@ Penalties are subtracted from 10, and the result is clamped to 1–10.
 - Rain: the highest chance of rain during the ride, from 15% up.
 - Visibility: penalties below 10 km, harsher below 5 km and 2 km.
 
-See the header comment in `src/services/scoringEngine.js` and the Help modal for the exact numbers.
+See the header comment in `src/services/scoringEngine.js` and the Help dialog (`src/components/HelpContent.jsx`) for the exact numbers. Keep the two in sync.
 
 ## Notes & limits
 
@@ -97,7 +101,7 @@ See the header comment in `src/services/scoringEngine.js` and the Help modal for
 - `npm run build`: Production build
 - `npm run preview`: Preview built app
 - `npm run lint`: Run ESLint
-- `npm test`: Run the unit tests (Vitest)
+- `npm test`: Run all tests (Vitest). Service tests run in Node. Component and app tests (`*.test.jsx`) run in a simulated browser via `// @vitest-environment happy-dom` at the top of the file. The app tests replace only the network, GPX parsing, and the Leaflet map, because gpxparser sets up its own jsdom and can't load in a DOM test environment. Shared test routes live in `src/test/fixtures.js`.
 
 ## Deploying to GitHub Pages
 

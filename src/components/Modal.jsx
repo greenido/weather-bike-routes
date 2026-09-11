@@ -6,6 +6,8 @@
   - Supports a dimmed backdrop that closes the modal on click and an optional footer area.
   - Behaves like a dialog for keyboard and screen-reader users: role="dialog", Escape closes it, Tab stays
     inside it, focus moves in on open and returns to where it was on close.
+  - Long content scrolls between the fixed title and footer. Without a field to focus, focus goes to the
+    content so the arrow keys scroll it.
 */
 import { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
@@ -14,6 +16,7 @@ const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), selec
 
 export default function Modal({ title, open, onClose, children, footer }) {
   const dialogRef = useRef(null)
+  const bodyRef = useRef(null)
   const onCloseRef = useRef(onClose)
   const titleId = useId()
 
@@ -25,7 +28,7 @@ export default function Modal({ title, open, onClose, children, footer }) {
     if (!open) return undefined
     const dialog = dialogRef.current
     const returnFocusTo = document.activeElement
-    ;(dialog.querySelector('input, select, textarea') || dialog).focus()
+    ;(dialog.querySelector('input, select, textarea') || bodyRef.current).focus()
 
     function handleKeyDown(e) {
       if (e.key === 'Escape') {
@@ -63,17 +66,17 @@ export default function Modal({ title, open, onClose, children, footer }) {
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative bg-white w-full max-w-lg rounded-xl shadow-lg border p-4 mx-4 focus:outline-none"
+        className="relative bg-white w-full max-w-lg max-h-[calc(100dvh-2rem)] flex flex-col rounded-xl shadow-lg border mx-4 focus:outline-none"
       >
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between px-4 pt-4 pb-3">
           <h2 id={titleId} className="text-lg font-semibold">{title}</h2>
           <button className="text-gray-500 hover:text-gray-700" onClick={onClose} aria-label="Close">✕</button>
         </div>
-        <div className="text-sm text-gray-800 space-y-3">
+        <div ref={bodyRef} tabIndex={-1} className="min-h-0 overflow-y-auto px-4 pb-4 text-sm text-gray-800 space-y-3 focus:outline-none">
           {children}
         </div>
         {footer && (
-          <div className="mt-4 pt-3 border-t flex justify-end gap-2">
+          <div className="px-4 pt-3 pb-4 border-t flex justify-end gap-2">
             {footer}
           </div>
         )}
