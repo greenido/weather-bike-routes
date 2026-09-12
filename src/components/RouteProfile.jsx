@@ -12,7 +12,7 @@
   - The title row is HTML so it wraps on phones; the tooltip is measured and kept inside the chart.
 */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { COMFORT_MAX_C, COMFORT_MIN_C, TEMP_COLORS, colorRuns, temperatureColor } from '../services/temperatureScale'
+import { COMFORT_MAX_C, COMFORT_MIN_C, TEMP_STOPS, temperatureColor } from '../services/temperatureScale'
 import { compassPoint, formatTime } from '../services/format'
 
 const X0 = 52
@@ -26,6 +26,8 @@ const TOOLTIP_TOP = 4
 const ELEVATION_GRAY = '#888780'
 const MIN_TICK_PX = 84
 const KM_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200]
+// The chart is on the page once, so a fixed id is safe (React's useId ids contain « », awkward inside url()).
+const GRADIENT_ID = 'route-temperature-gradient'
 
 const clamp = (value, lo, hi) => Math.min(hi, Math.max(lo, value))
 
@@ -100,9 +102,12 @@ export default function RouteProfile({ timeline, sampleIdx, hoverIndex, onHover 
             </g>
           ))}
           <rect x={X0} y={yT(COMFORT_MAX_C)} width={chart.x1 - X0} height={yT(COMFORT_MIN_C) - yT(COMFORT_MAX_C)} fill="rgba(11,11,11,0.05)" />
-          {chart.tempRuns.map((run) => (
-            <polyline key={run.key} points={run.points} fill="none" stroke={run.color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          ))}
+          <defs>
+            <linearGradient id={GRADIENT_ID} gradientUnits="userSpaceOnUse" x1="0" x2="0" y1={yT(chart.lo)} y2={yT(chart.hi)}>
+              {chart.gradientStops.map(({ offset, color }) => <stop key={offset} offset={offset} stopColor={color} />)}
+            </linearGradient>
+          </defs>
+          <polyline points={chart.tempLine} fill="none" stroke={`url(#${GRADIENT_ID})`} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
           {hasElevation && (
             <g>
@@ -194,11 +199,10 @@ function buildChart(timeline, width) {
   const axisY = hasElevation ? E_BOTTOM : T_BOTTOM + 8
 
   const xy = (p, y) => `${xOf(p.km).toFixed(1)},${y.toFixed(1)}`
-  const tempRuns = colorRuns(temps).map((run) => ({
-    key: `${run.start}-${run.bin}`,
-    color: TEMP_COLORS[run.bin],
-    points: timeline.slice(run.start, run.end + 1).map((p) => xy(p, yT(p.tempC))).join(' '),
-  }))
+  const tempLine = timeline.map((p) => xy(p, yT(p.tempC))).join(' ')
+  // The line is colored by height: a vertical gradient with each color stop at its temperature, like the map.
+  const gradientStops = [lo, ...TEMP_STOPS.map(([t]) => t).filter((t) => t > lo && t < hi), hi]
+    .map((t) => ({ offset: (t - lo) / (hi - lo), color: temperatureColor(t) }))
   const elevationLine = hasElevation ? timeline.map((p) => xy(p, yE(p.ele))).join(' ') : ''
   const elevationArea = hasElevation ? `M${X0},${E_BOTTOM} L${elevationLine.replaceAll(' ', ' L')} L${x1},${E_BOTTOM} Z` : ''
 
@@ -209,8 +213,8 @@ function buildChart(timeline, width) {
   for (let t = lo; t <= hi; t += 5) tempTicks.push(t)
 
   return {
-    x1, xOf, yT, yE, axisY, height: axisY + 42, hasElevation, eleMin, eleMax,
-    tempRuns, elevationLine, elevationArea, kmTicks, tempTicks,
+    x1, xOf, yT, yE, axisY, height: axisY + 42, hasElevation, eleMin, eleMax, lo, hi,
+    tempLine, gradientStops, elevationLine, elevationArea, kmTicks, tempTicks,
     kmAt: (px) => clamp(((px - X0) / (x1 - X0)) * totalKm, 0, totalKm),
   }
 }

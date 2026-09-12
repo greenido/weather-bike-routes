@@ -174,7 +174,7 @@ describe('App', () => {
     expect(within(help).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
       'How to use it', 'Reading a route', 'How the score works', 'Where the forecast comes from', 'Your privacy',
     ])
-    expect(within(help).getByRole('list', { name: 'Temperature colors' })).toBeTruthy()
+    expect(within(help).getByRole('img', { name: /^Temperature colors: violet and blue when it's cold/ })).toBeTruthy()
 
     await user.click(within(help).getByRole('button', { name: 'Take the tour' }))
     expect(screen.queryByRole('dialog')).toBeNull()

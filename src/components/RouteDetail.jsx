@@ -13,8 +13,14 @@ import { Shirt } from 'lucide-react'
 import MapPreview from './MapPreview.jsx'
 import RouteProfile from './RouteProfile.jsx'
 import { rideAdvice } from '../services/routeAnalysis'
-import { COMFORT_BIN, TEMP_COLORS, TEMP_LABELS } from '../services/temperatureScale'
+import { COMFORT_MAX_C, COMFORT_MIN_C, TEMP_STOPS } from '../services/temperatureScale'
 import { formatTime } from '../services/format'
+
+const LEGEND_MIN_C = TEMP_STOPS[0][0]
+const LEGEND_MAX_C = TEMP_STOPS.at(-1)[0]
+const LEGEND_TICKS_C = [0, 5, 10, 15, 20, 25, 30, 35]
+const legendPct = (tempC) => ((tempC - LEGEND_MIN_C) / (LEGEND_MAX_C - LEGEND_MIN_C)) * 100
+const LEGEND_GRADIENT = `linear-gradient(to right, ${TEMP_STOPS.map(([t, color]) => `${color} ${legendPct(t)}%`).join(', ')})`
 
 export default function RouteDetail({ route }) {
   const [hoverIndex, setHoverIndex] = useState(null)
@@ -71,15 +77,27 @@ function Stat({ label, value, detail }) {
   )
 }
 
+// The color scale with °C ticks, and a bracket over the comfort band.
 export function TemperatureLegend() {
   return (
-    <ul className="flex gap-0.5 text-[11px] text-gray-500 text-center" aria-label="Temperature colors">
-      {TEMP_COLORS.map((color, i) => (
-        <li key={color} className={i === COMFORT_BIN ? 'text-gray-800 font-medium' : undefined}>
-          <span className="block h-1.5 w-9 rounded-sm mb-0.5" style={{ background: color }} aria-hidden="true" />
-          {TEMP_LABELS[i]}
-        </li>
-      ))}
-    </ul>
+    <div
+      role="img"
+      aria-label={`Temperature colors: violet and blue when it's cold, turquoise to green for the ${COMFORT_MIN_C}–${COMFORT_MAX_C}°C comfort band, then yellow, orange, and red as it gets hotter.`}
+      className="w-72 max-w-full text-[11px] leading-4 text-gray-500"
+    >
+      <div className="relative h-5">
+        <span className="absolute top-0 -translate-x-1/2 font-medium text-gray-800" style={{ left: `${legendPct((COMFORT_MIN_C + COMFORT_MAX_C) / 2)}%` }}>comfort</span>
+        <span
+          className="absolute bottom-0 h-1 border-x border-t border-gray-500"
+          style={{ left: `${legendPct(COMFORT_MIN_C)}%`, width: `${legendPct(COMFORT_MAX_C) - legendPct(COMFORT_MIN_C)}%` }}
+        />
+      </div>
+      <div className="h-2 rounded-full" style={{ background: LEGEND_GRADIENT }} />
+      <div className="relative h-4 mt-0.5 tabular-nums">
+        {LEGEND_TICKS_C.map((t) => (
+          <span key={t} className="absolute -translate-x-1/2" style={{ left: `${legendPct(t)}%` }}>{t}°</span>
+        ))}
+      </div>
+    </div>
   )
 }
