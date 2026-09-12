@@ -3,37 +3,47 @@
   Purpose: Leaflet map of the selected route, colored by the temperature you'll meet at each point.
   What it does:
   - Muted OpenStreetMap basemap (grayscaled with CSS, attribution shown) so the temperature colors stand out.
-  - Draws a dark casing, then one polyline per same-temperature run, plus arrows showing the riding direction.
-  - Labels start/finish, the coldest, and the warmest point; a marker follows the hovered point (`hoverIndex`).
+  - Draws a dark casing, then the route in the temperature colors (one polyline per stretch of about the same
+    temperature), plus arrows showing the riding direction.
+  - Labels start/finish, the coldest, and the warmest point, and puts temperature labels along the route. Which of
+    those fit without crowding is worked out again at every zoom (`mapLabels`), so zooming in shows more.
+  - A marker follows the hovered point (`hoverIndex`) and shows its temperature, time, and distance.
   - Reports the route point nearest the pointer through `onHover(index | null)`.
   Notes:
   - The initial view comes from MapContainer `bounds`; the parent remounts this component per route.
-  - Positions and path options are memoized: react-leaflet re-applies any prop whose reference changes, and the
-    map re-renders on every hover.
+  - Positions, path options, and icons are memoized: react-leaflet re-applies any prop whose reference changes, and
+    the map re-renders on every hover.
 */
-import { useMemo } from 'react'
-import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMapEvents } from 'react-leaflet'
+import { useMemo, useState } from 'react'
+import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { bearingDeg, haversineKm } from '../services/geo'
-import { TEMP_COLORS, colorRuns, temperatureColor } from '../services/temperatureScale'
-import { formatDegrees } from '../services/format'
+import { colorRuns, temperatureColor, temperatureTextColor } from '../services/temperatureScale'
+import { labelMarks, placeLabels } from '../services/mapLabels'
+import { formatDegrees, formatTime } from '../services/format'
 
 const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
 const ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 const CASING = 'rgba(11,11,11,0.55)'
 const LINE = { lineCap: 'round', lineJoin: 'round', opacity: 1 }
-const CASING_OPTIONS = { ...LINE, color: CASING, weight: 9 }
+const CASING_OPTIONS = { ...LINE, color: CASING, weight: 10 }
 const HOVER_RADIUS_PX = 24
 const ARROW_COUNT = 8
+const ARROW_PX = 14
+// Space between temperature labels, and their estimated sizes (12px text; see `.temp-pill` and `.route-label`).
+const LABEL_GAP_PX = 56
+const PILL_HEIGHT_PX = 19
+const pillWidth = (text) => text.length * 6 + 12
+const calloutWidth = (text) => text.length * 5.8 + 12
 
 export default function MapPreview({ timeline, summary, hoverIndex, onHover }) {
   const positions = useMemo(() => timeline.map((p) => [p.lat, p.lon]), [timeline])
   const bounds = useMemo(() => L.latLngBounds(positions), [positions])
   const runs = useMemo(() => colorRuns(timeline.map((p) => p.tempC)).map((run) => ({
-    key: `${run.start}-${run.bin}`,
+    key: run.start,
     positions: positions.slice(run.start, run.end + 1),
-    pathOptions: { ...LINE, color: TEMP_COLORS[run.bin], weight: 5 },
+    pathOptions: { ...LINE, color: run.color, weight: 6 },
   })), [timeline, positions])
   const arrows = useMemo(() => directionArrows(timeline), [timeline])
   const labels = useMemo(() => routeLabels(timeline, summary), [timeline, summary])
@@ -49,6 +59,7 @@ export default function MapPreview({ timeline, summary, hoverIndex, onHover }) {
       {arrows.map((arrow) => (
         <Marker key={arrow.index} position={positions[arrow.index]} icon={arrow.icon} interactive={false} keyboard={false} />
       ))}
+      <TemperatureLabels timeline={timeline} labels={labels} arrows={arrows} />
       {labels.map((label) => (
         <CircleMarker
           key={label.key}
@@ -66,11 +77,52 @@ export default function MapPreview({ timeline, summary, hoverIndex, onHover }) {
           radius={7}
           pathOptions={{ color: '#0b0b0b', weight: 2, fillOpacity: 1, fillColor: temperatureColor(hovered.tempC) }}
           interactive={false}
-        />
+        >
+          <Tooltip permanent direction="top" offset={[0, -9]} className="route-hover">
+            <b>{hovered.tempC.toFixed(1)}°C</b> · {formatTime(hovered.eta)} · km {hovered.km.toFixed(1)}
+          </Tooltip>
+        </CircleMarker>
       )}
       <HoverTracker positions={positions} onHover={onHover} />
     </MapContainer>
   )
+}
+
+// Temperature labels along the route: rounder km marks first, skipping any that would crowd another label or cover
+// an arrow at this zoom.
+function TemperatureLabels({ timeline, labels, arrows }) {
+  const map = useMap()
+  const [zoom, setZoom] = useState(() => map.getZoom())
+  useMapEvents({ zoomend: () => setZoom(map.getZoom()) })
+  const marks = useMemo(() => labelMarks(timeline), [timeline])
+  const pills = useMemo(() => {
+    const at = (i) => map.project([timeline[i].lat, timeline[i].lon], zoom)
+    const around = ({ x, y }, width, height) => ({ x0: x - width / 2, x1: x + width / 2, y0: y - height / 2, y1: y + height / 2 })
+    const candidates = marks.map((index) => ({ index, ...around(at(index), pillWidth(formatDegrees(timeline[index].tempC)), PILL_HEIGHT_PX) }))
+    // A callout's 24px tooltip ends 14px above its point (8px offset + the tip); its dot sits on the point.
+    const callouts = labels.map((label) => {
+      const { x, y } = at(label.index)
+      const half = calloutWidth(label.text) / 2
+      return { x0: x - half, x1: x + half, y0: y - 38, y1: y + 7 }
+    })
+    const blocked = arrows.map((arrow) => around(at(arrow.index), ARROW_PX, ARROW_PX))
+    return placeLabels(candidates, { labels: callouts, blocked, gapPx: LABEL_GAP_PX }).map(({ index }) => {
+      const { lat, lon, tempC } = timeline[index]
+      return {
+        index,
+        position: [lat, lon],
+        icon: L.divIcon({
+          className: 'temp-pill-icon',
+          html: `<span class="temp-pill" style="background:${temperatureColor(tempC)};color:${temperatureTextColor(tempC)}">${formatDegrees(tempC)}</span>`,
+          iconSize: null,
+        }),
+      }
+    })
+  }, [map, zoom, marks, timeline, labels, arrows])
+
+  return pills.map((pill) => (
+    <Marker key={pill.index} position={pill.position} icon={pill.icon} interactive={false} keyboard={false} zIndexOffset={1000} />
+  ))
 }
 
 function HoverTracker({ positions, onHover }) {
@@ -107,9 +159,9 @@ function directionArrows(timeline) {
         index,
         icon: L.divIcon({
           className: 'route-arrow',
-          html: `<svg width="14" height="14" viewBox="-7 -7 14 14" style="transform: rotate(${rotation.toFixed(0)}deg)"><path d="M-3,-4 L2.5,0 L-3,4" fill="none" stroke="${CASING}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
-          iconSize: [14, 14],
-          iconAnchor: [7, 7],
+          html: `<svg width="${ARROW_PX}" height="${ARROW_PX}" viewBox="-7 -7 14 14" style="transform: rotate(${rotation.toFixed(0)}deg)"><path d="M-3,-4 L2.5,0 L-3,4" fill="none" stroke="${CASING}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+          iconSize: [ARROW_PX, ARROW_PX],
+          iconAnchor: [ARROW_PX / 2, ARROW_PX / 2],
         }),
       })
     }

@@ -26,7 +26,7 @@ export default function HelpContent() {
         <ul className="list-disc pl-5 space-y-1">
           <li><b>Cards</b>: a sketch of the route, its score, and what cost points. A plus is a bonus, like a tailwind.</li>
           <li>
-            <b>Map</b>: the route is colored by the temperature when you’ll get to each point. Arrows show your direction; labels mark the start, finish, coldest, and warmest spots.
+            <b>Map</b>: the route is colored by the temperature when you’ll get to each point: blue when it’s cold, green in the comfort band, and yellow to red as it gets hotter. Numbers along the route give the temperature (zoom in for more), and labels mark the start, finish, coldest, and warmest spots. Point at the route to see the temperature, time, and distance there. Arrows show your direction.
             <div className="mt-1.5"><TemperatureLegend /></div>
           </li>
           <li><b>Chart</b>: temperature over the shaded 15–22°C comfort band, with elevation below, by distance and time of day. Move along it, or along the route on the map, to see the temperature, feels-like, wind, and chance of rain at any point. With a keyboard, focus the chart and use the arrow keys; Home and End jump to the start and finish. “Show forecast points as a table” lists the exact numbers.</li>

@@ -8,7 +8,7 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - Weather from Open-Meteo out of the box (no API key); Visual Crossing is used instead when you add a key in Settings
 - Forecast for the time you'll actually be at each point: arrival times come from your start time and average speed (slower on climbs, faster downhill)
 - Temperature along the route:
-  - Map with the route colored by temperature, direction arrows, and start/finish and coldest/warmest labels
+  - Map with the route colored like a weather map (blue when cold, green in the 15–22°C comfort band, yellow to red when hot), temperatures along the way that thin out or fill in as you zoom, a readout for the point under the pointer, direction arrows, and start/finish and coldest/warmest labels
   - Profile chart of temperature (with the 15–22°C comfort band) and elevation by distance and time of day; hover, touch, or use the arrow keys, and the point is highlighted on the map too
   - Table view of the forecast points, plus ride tips ("Below 15°C until km 12 (9:40 AM). Start with arm warmers.")
 - Scoring that accounts for wind direction on each stretch of road, gusts, feels-like temperature over the whole ride, chance of rain, and visibility
@@ -33,7 +33,7 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - `src/components/RouteList.jsx`: Route cards (best score first) with sketch, score, breakdown, and ride summary
 - `src/components/RouteThumbnail.jsx`: Small SVG sketch of a route, colored by temperature
 - `src/components/RouteDetail.jsx`: The selected route: headline stats, ride tips, legend, map, and profile
-- `src/components/MapPreview.jsx`: Leaflet map with the temperature-colored route, arrows, and labels
+- `src/components/MapPreview.jsx`: Leaflet map with the temperature-colored route, temperature labels, arrows, callouts, and the hover readout
 - `src/components/RouteProfile.jsx`: Temperature and elevation chart with crosshair, keyboard support, and table view
 - `src/components/ScoreBreakdown.jsx`: Penalty breakdown with icons
 - `src/components/TopNav.jsx`: Sticky header with Settings & Help actions
@@ -44,7 +44,8 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - `src/services/routeAnalysis.js`: Arrival times, weather at every point of the ride, ride summary, and tips
 - `src/services/weatherClient.js`: Fetches and normalizes forecasts from either provider; interpolates to any time
 - `src/services/scoringEngine.js`: Turns a ride summary into a score and its breakdown
-- `src/services/temperatureScale.js`: Temperature color bins shared by the map, chart, sketch, and legend
+- `src/services/temperatureScale.js`: The temperature color scale (a continuous ramp) shared by the map, chart, sketch, and legend
+- `src/services/mapLabels.js`: Where the temperature labels go along the route at each zoom, so they never pile up
 - `src/services/geo.js`, `src/services/format.js`: Distance/bearing math and display formatting
 - `src/services/cache.js`: IndexedDB forecast cache and API key storage
 - `src/services/logger.js`: In-memory log with subscriber API

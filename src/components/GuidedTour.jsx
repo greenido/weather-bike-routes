@@ -57,7 +57,7 @@ const RESULTS_STEPS = [
   {
     target: '[data-tour="map"]',
     title: 'Temperature along the route',
-    content: 'The route is colored by the temperature when you’ll get to each point: blue is colder, gray is the comfortable 15–22°C, red is warmer. Arrows show your direction; labels mark the start, finish, coldest, and warmest spots.',
+    content: 'The route is colored by the temperature when you’ll get to each point: blue when it’s cold, green for the comfortable 15–22°C, then yellow, orange, and red as it gets hotter. Numbers along the way show the temperature; arrows show your direction.',
   },
   {
     target: '[data-tour="profile"]',

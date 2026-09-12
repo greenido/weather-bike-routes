@@ -8,7 +8,7 @@
   - Replaces a full Leaflet map per card: no tiles to download and no map instances to keep alive.
 */
 import { useMemo } from 'react'
-import { TEMP_COLORS, colorRuns } from '../services/temperatureScale'
+import { colorRuns } from '../services/temperatureScale'
 
 const W = 160
 const H = 112
@@ -32,7 +32,7 @@ export default function RouteThumbnail({ points, timeline }) {
       <rect width={W} height={H} fill="#f8fafc" />
       <polyline points={path(0, xy.length - 1)} {...LINE} stroke="rgba(11,11,11,0.55)" strokeWidth="5" />
       {runs
-        ? runs.map((run) => <polyline key={run.start} points={path(run.start, run.end)} {...LINE} stroke={TEMP_COLORS[run.bin]} strokeWidth="3" />)
+        ? runs.map((run) => <polyline key={run.start} points={path(run.start, run.end)} {...LINE} stroke={run.color} strokeWidth="3" />)
         : <polyline points={path(0, xy.length - 1)} {...LINE} stroke="#B4B2A9" strokeWidth="3" />}
       <circle cx={xy[0][0]} cy={xy[0][1]} r="3.5" fill="#0b0b0b" stroke="#fff" strokeWidth="1.5" />
     </svg>
