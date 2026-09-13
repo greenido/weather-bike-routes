@@ -3,13 +3,26 @@
   Purpose: Sticky top navigation bar with quick access to Settings and Help.
   What it does:
   - Provides actions to open the Settings modal (API key) and Help modal (how to use the app, scoring, the tour).
+  - Links back to Weather 4 Bike, the forecast app that links here to score routes for its best riding window.
 */
+const WEATHER_4_BIKE_URL = 'https://greenido.github.io/weather-4-bike/'
+
 export default function TopNav({ onOpenSettings, onOpenHelp }) {
   return (
     <nav className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b">
-      <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-        <div className="text-xl font-bold tracking-tight">🚴🏼‍♂️ Bike Route Weather</div>
-        <div className="flex items-center gap-2">
+      <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between gap-3">
+        <div className="text-lg sm:text-xl font-bold tracking-tight leading-tight">🚴🏼‍♂️ Bike Route Weather</div>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Just the arrow on phones, where the title needs the room. */}
+          <a
+            href={WEATHER_4_BIKE_URL}
+            className="px-3 py-1.5 text-sm rounded-md border hover:bg-gray-50"
+            aria-label="Weather 4 Bike forecast"
+            title="Weather 4 Bike: the forecast and best time to ride"
+          >
+            <span aria-hidden="true">←</span>
+            <span className="hidden sm:inline"> Weather 4 Bike</span>
+          </a>
           <button
             className="px-3 py-1.5 text-sm rounded-md border hover:bg-gray-50"
             onClick={onOpenSettings}

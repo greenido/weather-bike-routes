@@ -3,6 +3,7 @@
   Purpose: Main application container wiring together data flow and UI.
   What it does:
   - Manages app state: uploaded routes, start time, average speed, per-route analysis, selection, loading & errors.
+    The start time and speed can arrive from a Weather 4 Bike link (`initialSettings`).
   - Parses GPX uploads, then analyzes every route (forecast at each point for the time you get there → score).
     Changing the start time, speed, or weather provider re-runs the analysis after a short pause, and a newer
     run cancels the one in flight, so a slow, stale response can never overwrite a fresh one.
@@ -25,26 +26,19 @@ import { analyzeRoute } from './services/routeAnalysis'
 import { getStoredApiKey, setStoredApiKey } from './services/cache'
 import { logEvent } from './services/logger'
 import { MAX_DAYS_AHEAD } from './services/weatherClient'
+import { MAX_SPEED_KPH, MIN_SPEED_KPH, readInitialSettings } from './services/initialSettings'
 
-const DEFAULT_SPEED_KPH = 22
 const RECALC_DELAY_MS = 350
 
-// Tomorrow at this hour, formatted for <input type="datetime-local"> in local time.
-function defaultStartDateTime() {
-  const d = new Date(Date.now() + 24 * 60 * 60 * 1000)
-  d.setMinutes(0, 0, 0)
-  const pad = (n) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-}
-
 function App() {
+  const [initial] = useState(readInitialSettings)
   const [apiKey, setApiKey] = useState(getStoredApiKey)
   const [keyDraft, setKeyDraft] = useState('')
   const [routes, setRoutes] = useState([])
   const [analyses, setAnalyses] = useState({})
   const [selectedId, setSelectedId] = useState(null)
-  const [startDateTime, setStartDateTime] = useState(defaultStartDateTime)
-  const [speedKph, setSpeedKph] = useState(DEFAULT_SPEED_KPH)
+  const [startDateTime, setStartDateTime] = useState(initial.startDateTime)
+  const [speedKph, setSpeedKph] = useState(initial.speedKph)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [uploadError, setUploadError] = useState('')
@@ -142,8 +136,8 @@ function App() {
               Average speed: {speedKph} km/h
               <input
                 type="range"
-                min="12"
-                max="40"
+                min={MIN_SPEED_KPH}
+                max={MAX_SPEED_KPH}
                 step="1"
                 value={speedKph}
                 onChange={(e) => setSpeedKph(Number(e.target.value))}

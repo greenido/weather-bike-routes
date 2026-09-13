@@ -14,6 +14,7 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - Scoring that accounts for wind direction on each stretch of road, gusts, feels-like temperature over the whole ride, chance of rain, and visibility
 - Route list sorted by score, with a temperature-colored sketch of each route and the score breakdown
 - IndexedDB forecast cache (2 hours) so changing the start time or speed doesn't refetch
+- Works with [Weather 4 Bike](https://greenido.github.io/weather-4-bike/): its "Score your GPX" link opens this app on its best riding window and your speed, and the header links back (see [Opening from Weather 4 Bike](#opening-from-weather-4-bike))
 - Guided tour for first-time visitors: first the ride settings, upload, Settings, and Help, then the results the first time a route is scored. Help can replay it, and explains how to use the app, how to read a route, the exact scoring numbers, where forecasts come from, and what leaves the browser
 
 ## Architecture
@@ -36,7 +37,7 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - `src/components/MapPreview.jsx`: Leaflet map with the temperature-colored route, temperature labels, arrows, callouts, and the hover readout
 - `src/components/RouteProfile.jsx`: Temperature and elevation chart with crosshair, keyboard support, and table view
 - `src/components/ScoreBreakdown.jsx`: Penalty breakdown with icons
-- `src/components/TopNav.jsx`: Sticky header with Settings & Help actions
+- `src/components/TopNav.jsx`: Sticky header with Settings & Help actions and a link back to Weather 4 Bike
 - `src/components/Modal.jsx`: Accessible portal-based dialog used by Settings/Help; long content scrolls
 - `src/components/HelpContent.jsx`: What the Help dialog says
 - `src/components/GuidedTour.jsx`: The first-run tour: its steps, when each part runs, and progress saved in localStorage. Steps point at `data-tour` attributes
@@ -48,6 +49,7 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - `src/services/mapLabels.js`: Where the temperature labels go along the route at each zoom, so they never pile up
 - `src/services/geo.js`, `src/services/format.js`: Distance/bearing math and display formatting
 - `src/services/cache.js`: IndexedDB forecast cache and API key storage
+- `src/services/initialSettings.js`: The start time and speed the app opens with, from the URL or Weather 4 Bike
 - `src/services/logger.js`: In-memory log with subscriber API
 
 ## Setup
@@ -88,6 +90,15 @@ Penalties are subtracted from 10, and the result is clamped to 1–10.
 - Visibility: penalties below 10 km, harsher below 5 km and 2 km.
 
 See the header comment in `src/services/scoringEngine.js` and the Help dialog (`src/components/HelpContent.jsx`) for the exact numbers. Keep the two in sync.
+
+## Opening from Weather 4 Bike
+
+[Weather 4 Bike](https://greenido.github.io/weather-4-bike/) finds the best time to ride; this app scores your actual routes for that time. Its "Score your GPX" link opens this app with:
+
+- `start`: the start of the ride as an ISO instant, e.g. `?start=2026-09-19T14:00:00.000Z`. It fills in the start date & time in your browser's time zone. A start more than an hour in the past or beyond the forecast range is ignored, so an old bookmark opens on the default instead.
+- `speed`: average speed in km/h, rounded and clamped to the slider's 12–40.
+
+Without `speed`, the app uses the speed you set in Weather 4 Bike's settings. Both apps are served from `greenido.github.io`, so they share `localStorage`; this app only reads the `w4b:ridingSpeed` key (a km/h number) and never writes it. If Weather 4 Bike renames that key, update `SHARED_SPEED_KEY` in `src/services/initialSettings.js`.
 
 ## Notes & limits
 

@@ -12,6 +12,7 @@ import userEvent from '@testing-library/user-event'
 import App from './App.jsx'
 import { TOUR_STORAGE_KEY } from './components/GuidedTour.jsx'
 import { parseGpxFile } from './services/gpxParser'
+import { SHARED_SPEED_KEY, toDateTimeLocal } from './services/initialSettings'
 import { makeRoute } from './test/fixtures'
 
 vi.mock('./services/gpxParser', () => ({ parseGpxFile: vi.fn() }))
@@ -149,6 +150,30 @@ describe('App', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
     await new Promise((resolve) => setTimeout(resolve, 500))
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('opens on the ride a Weather 4 Bike link asks for', () => {
+    const start = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+    start.setMinutes(0, 0, 0)
+    window.history.replaceState(null, '', `/?start=${start.toISOString()}&speed=27`)
+    try {
+      render(<App />)
+      expect(screen.getByLabelText('Start date & time').value).toBe(toDateTimeLocal(start))
+      expect(screen.getByText('Average speed: 27 km/h')).toBeTruthy()
+    } finally {
+      window.history.replaceState(null, '', '/')
+    }
+  })
+
+  it('starts from the speed saved in Weather 4 Bike', () => {
+    localStorage.setItem(SHARED_SPEED_KEY, '30')
+    render(<App />)
+    expect(screen.getByText('Average speed: 30 km/h')).toBeTruthy()
+  })
+
+  it('links back to Weather 4 Bike', () => {
+    render(<App />)
+    expect(screen.getByRole('link', { name: 'Weather 4 Bike forecast' }).getAttribute('href')).toBe('https://greenido.github.io/weather-4-bike/')
   })
 
   it('uses Visual Crossing, one point at a time, once a key is saved in Settings', async () => {
