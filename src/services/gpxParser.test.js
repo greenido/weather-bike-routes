@@ -18,6 +18,21 @@ describe('parseGpxText', () => {
     expect(route.points[10].ele).toBe(110)
   })
 
+  it('reads the route’s own name, preferring the track’s over the file’s metadata', () => {
+    const segment = eastward(5, 0.1).map(pt('trkpt')).join('')
+    const body = `<metadata><name>My exports</name></metadata><trk><name>Sunday Hills</name><trkseg>${segment}</trkseg></trk>`
+    expect(parseGpxText(gpx(body)).name).toBe('Sunday Hills')
+  })
+
+  it('reads a route file’s name, trims it, and ignores the export’s collection name', () => {
+    const points = eastward(5, 0.1)
+    const named = (body) => parseGpxText(gpx(body)).name
+    expect(named(`<rte><name>  Planned loop  </name>${points.map(pt('rtept')).join('')}</rte>`)).toBe('Planned loop')
+    // <metadata><name> names the export, not this route, so every route in a batch would share it.
+    expect(named(`<metadata><name>All my rides</name></metadata>${track(points)}`)).toBe('')
+    expect(named(track(points))).toBe('')
+  })
+
   it('samples weather every 5 km along the whole route, not just the ends', () => {
     const route = parseGpxText(gpx(track(eastward(1000, 1.27))))
     expect(route.sampleIdx).toHaveLength(21)

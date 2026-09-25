@@ -5,14 +5,16 @@
   - Lists each route with name, score, penalty breakdown, and a one-line ride summary.
   - Each card is a real <button> (keyboard and screen-reader friendly) that selects the route via `onSelect`.
     Its accessible name is just the route and score; the breakdown and summary are its description.
+  - A remove button sits beside each card, as its own sibling: a button can't be nested inside another one.
   - On phones the breakdown and summary drop below the sketch and use the full card width.
 */
+import { X } from 'lucide-react'
 import ScoreBreakdown from './ScoreBreakdown.jsx'
 import RouteThumbnail from './RouteThumbnail.jsx'
 import { colorForScore } from '../services/scoringEngine'
 import { formatTime } from '../services/format'
 
-export default function RouteList({ routes, selectedId, onSelect, isLoading }) {
+export default function RouteList({ routes, selectedId, onSelect, onRemove, isLoading }) {
   if (!routes?.length) return null
   return (
     <ul className="mt-6 space-y-4" aria-label="Routes, best score first" data-tour="routes">
@@ -22,14 +24,14 @@ export default function RouteList({ routes, selectedId, onSelect, isLoading }) {
         const breakdownId = `route-breakdown-${route.id}`
         const summaryId = `route-summary-${route.id}`
         return (
-          <li key={route.id}>
+          <li key={route.id} className="flex items-stretch gap-2">
             <button
               type="button"
               onClick={() => onSelect?.(route.id)}
               aria-pressed={selected}
               aria-label={cardLabel(route, analysis, isLoading)}
               aria-describedby={analysis ? `${breakdownId} ${summaryId}` : summaryId}
-              className={`w-full text-left bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${selected ? 'ring-2 ring-blue-600' : ''}`}
+              className={`min-w-0 flex-1 text-left bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${selected ? 'ring-2 ring-blue-600' : ''}`}
             >
               <span className="grid grid-cols-[6rem_minmax(0,1fr)] sm:grid-cols-[10rem_minmax(0,1fr)] items-center gap-x-3 sm:gap-x-4 gap-y-2">
                 <span className="block aspect-[10/7] rounded overflow-hidden border">
@@ -54,6 +56,15 @@ export default function RouteList({ routes, selectedId, onSelect, isLoading }) {
                   <span id={summaryId} className="col-span-2 block text-gray-700 sm:mt-2 text-sm">{describeRide(route, analysis)}</span>
                 </span>
               </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onRemove?.(route.id)}
+              aria-label={`Remove ${route.name}`}
+              title={`Remove ${route.name}`}
+              className="shrink-0 px-2 rounded-xl border bg-white text-gray-400 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+            >
+              <X size={18} aria-hidden="true" />
             </button>
           </li>
         )

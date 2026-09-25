@@ -4,6 +4,8 @@
   What it does:
   - Manages app state: uploaded routes, start time, average speed, per-route analysis, selection, loading & errors.
     The start time and speed can arrive from a Weather 4 Bike link (`initialSettings`).
+  - Keeps a library of routes: an upload adds to what's there (re-uploading a route replaces it), each route can
+    be removed on its own, and the library is stored in IndexedDB so a reload picks up where you left off.
   - Parses GPX uploads, then analyzes every route (forecast at each point for the time you get there → score).
     Changing the start time, speed, or weather provider re-runs the analysis after a short pause, and a newer
     run cancels the one in flight, so a slow, stale response can never overwrite a fresh one.
@@ -23,12 +25,21 @@ import HelpContent from './components/HelpContent.jsx'
 import GuidedTour from './components/GuidedTour.jsx'
 import { parseGpxFile } from './services/gpxParser'
 import { analyzeRoute } from './services/routeAnalysis'
-import { getStoredApiKey, setStoredApiKey } from './services/cache'
+import { getStoredApiKey, getStoredRoutes, setStoredApiKey, setStoredRoutes } from './services/cache'
 import { logEvent } from './services/logger'
 import { MAX_DAYS_AHEAD } from './services/weatherClient'
 import { MAX_SPEED_KPH, MIN_SPEED_KPH, readInitialSettings } from './services/initialSettings'
 
 const RECALC_DELAY_MS = 350
+
+let routeCounter = 0
+// Unique across a session and across reloads, so restored routes can't collide with newly uploaded ones.
+const nextRouteId = () => `${Date.now().toString(36)}-${routeCounter++}`
+
+// The same route uploaded again (an edited file, say) replaces the one already there instead of doubling up.
+const isSameRoute = (a, b) => a.name === b.name && Math.abs(a.totalKm - b.totalKm) < 0.01
+
+const withoutExtension = (fileName) => fileName.replace(/\.gpx$/i, '')
 
 function App() {
   const [initial] = useState(readInitialSettings)
@@ -45,6 +56,7 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isHelpOpen, setIsHelpOpen] = useState(false)
   const [isTourReplay, setIsTourReplay] = useState(false)
+  const [isRestored, setIsRestored] = useState(false)
 
   const startMs = useMemo(() => new Date(startDateTime).getTime(), [startDateTime])
 
@@ -54,22 +66,47 @@ function App() {
     const parsed = []
     const failed = []
     results.forEach((result, i) => {
-      if (result.status === 'fulfilled') parsed.push({ id: `${Date.now()}-${i}`, name: files[i].name, ...result.value })
-      else failed.push(`${files[i].name} (${result.reason?.message || 'unreadable file'})`)
+      if (result.status === 'fulfilled') {
+        // The route's own <name> beats the file name, which is often an export timestamp.
+        parsed.push({ ...result.value, id: nextRouteId(), name: result.value.name || withoutExtension(files[i].name) })
+      } else {
+        failed.push(`${files[i].name} (${result.reason?.message || 'unreadable file'})`)
+      }
     })
     if (failed.length) setUploadError(`Couldn't read ${failed.join(', ')}.`)
-    if (parsed.length) {
-      setRoutes(parsed)
-      setAnalyses({})
-      setSelectedId(null)
-    }
+    if (parsed.length) setRoutes((current) => addRoutes(current, parsed))
   }
 
+  function removeRoute(id) {
+    setRoutes((current) => current.filter((route) => route.id !== id))
+    setSelectedId((current) => (current === id ? null : current))
+  }
+
+  // Restore the library first, then keep it in step. Saving waits for the restore so an empty first render
+  // can't overwrite what's stored.
   useEffect(() => {
-    if (!routes.length || !Number.isFinite(startMs)) return undefined
+    let cancelled = false
+    getStoredRoutes().then((saved) => {
+      if (cancelled) return
+      if (saved.length) setRoutes(saved)
+      setIsRestored(true)
+    })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    if (isRestored) setStoredRoutes(routes)
+  }, [routes, isRestored])
+
+  useEffect(() => {
+    if (!routes.length || !Number.isFinite(startMs)) {
+      setIsLoading(false)
+      return undefined
+    }
+    // Set before the debounce, not inside it, so the cards don't read "No forecast" for a third of a second.
+    setIsLoading(true)
     const controller = new AbortController()
     const timer = setTimeout(async () => {
-      setIsLoading(true)
       setError('')
       try {
         const results = await Promise.all(routes.map((route) => analyzeRoute(route, { startMs, speedKph, apiKey, signal: controller.signal })))
@@ -158,7 +195,7 @@ function App() {
         <p className="mt-3 text-gray-700" aria-live="polite">{isLoading ? 'Loading forecasts…' : ''}</p>
 
         <div className={isLoading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
-          <RouteList routes={rankedRoutes} selectedId={selected?.id} onSelect={setSelectedId} isLoading={isLoading} />
+          <RouteList routes={rankedRoutes} selectedId={selected?.id} onSelect={setSelectedId} onRemove={removeRoute} isLoading={isLoading} />
           {selected?.analysis && <RouteDetail key={selected.id} route={selected} />}
         </div>
       </main>
@@ -214,6 +251,17 @@ function App() {
       <GuidedTour hasResults={Boolean(selected?.analysis)} replayRequested={isTourReplay} onReplayDone={() => setIsTourReplay(false)} />
     </div>
   )
+}
+
+// Newly parsed routes join the library, replacing any copy of the same route already in it.
+function addRoutes(current, parsed) {
+  const merged = [...current]
+  parsed.forEach((route) => {
+    const at = merged.findIndex((existing) => isSameRoute(existing, route))
+    if (at === -1) merged.push(route)
+    else merged[at] = { ...route, id: merged[at].id } // Keep the id so the selection survives a re-upload.
+  })
+  return merged
 }
 
 export default App

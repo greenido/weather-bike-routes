@@ -4,7 +4,7 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 
 ## Features
 
-- Route upload via drag & drop or file picker (`.gpx`, tracks or routes)
+- Route upload via drag & drop or file picker (`.gpx`, tracks or routes). Uploads join the routes already there, each route can be removed on its own, and the library is remembered across reloads. A route is named by its own `<name>`, falling back to the file name.
 - Weather from Open-Meteo out of the box (no API key); Visual Crossing is used instead when you add a key in Settings
 - Forecast for the time you'll actually be at each point: arrival times come from your start time and average speed (slower on climbs, faster downhill)
 - Temperature along the route:
@@ -13,7 +13,7 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
   - Table view of the forecast points, plus ride tips ("Below 15°C until km 12 (9:40 AM). Start with arm warmers.")
 - Scoring that accounts for wind direction on each stretch of road, gusts, feels-like temperature over the whole ride, chance of rain, and visibility
 - Route list sorted by score, with a temperature-colored sketch of each route and the score breakdown
-- IndexedDB forecast cache (2 hours) so changing the start time or speed doesn't refetch
+- IndexedDB forecast cache (2 hours) so changing the start time or speed doesn't refetch; the uploaded routes live there too, so a reload comes back scored without fetching anything
 - Works with [Weather 4 Bike](https://greenido.github.io/weather-4-bike/): its "Score your GPX" link opens this app on its best riding window and your speed, and the header links back (see [Opening from Weather 4 Bike](#opening-from-weather-4-bike))
 - Guided tour for first-time visitors: first the ride settings, upload, Settings, and Help, then the results the first time a route is scored. Help can replay it, and explains how to use the app, how to read a route, the exact scoring numbers, where forecasts come from, and what leaves the browser
 
@@ -29,9 +29,9 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 
 ### Key modules
 
-- `src/App.jsx`: App state; start time, speed, and settings; runs the analysis (debounced and cancellable) and renders the list and the selected route
+- `src/App.jsx`: App state; start time, speed, and settings; the route library (add, replace, remove, restore); runs the analysis (debounced and cancellable) and renders the list and the selected route
 - `src/components/UploadForm.jsx`: GPX input (drag/drop and button)
-- `src/components/RouteList.jsx`: Route cards (best score first) with sketch, score, breakdown, and ride summary
+- `src/components/RouteList.jsx`: Route cards (best score first) with sketch, score, breakdown, ride summary, and a remove button beside each card
 - `src/components/RouteThumbnail.jsx`: Small SVG sketch of a route, colored by temperature
 - `src/components/RouteDetail.jsx`: The selected route: headline stats, ride tips, legend, map, and profile
 - `src/components/MapPreview.jsx`: Leaflet map with the temperature-colored route, temperature labels, arrows, callouts, and the hover readout
@@ -41,14 +41,14 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - `src/components/Modal.jsx`: Accessible portal-based dialog used by Settings/Help; long content scrolls
 - `src/components/HelpContent.jsx`: What the Help dialog says
 - `src/components/GuidedTour.jsx`: The first-run tour: its steps, when each part runs, and progress saved in localStorage. Steps point at `data-tour` attributes
-- `src/services/gpxParser.js`: GPX parsing, cumulative distance, and where to sample forecasts (about every 5 km)
+- `src/services/gpxParser.js`: GPX parsing, the route's own name, cumulative distance, and where to sample forecasts (about every 5 km)
 - `src/services/routeAnalysis.js`: Arrival times, weather at every point of the ride, ride summary, and tips
 - `src/services/weatherClient.js`: Fetches and normalizes forecasts from either provider; interpolates to any time
 - `src/services/scoringEngine.js`: Turns a ride summary into a score and its breakdown
 - `src/services/temperatureScale.js`: The temperature color scale (a continuous ramp) shared by the map, chart, sketch, and legend
 - `src/services/mapLabels.js`: Where the temperature labels go along the route at each zoom, so they never pile up
 - `src/services/geo.js`, `src/services/format.js`: Distance/bearing math and display formatting
-- `src/services/cache.js`: IndexedDB forecast cache and API key storage
+- `src/services/cache.js`: IndexedDB forecast cache, the stored route library, and API key storage
 - `src/services/initialSettings.js`: The start time and speed the app opens with, from the URL or Weather 4 Bike
 - `src/services/logger.js`: In-memory log with subscriber API
 
