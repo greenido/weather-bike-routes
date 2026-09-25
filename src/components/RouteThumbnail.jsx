@@ -29,12 +29,12 @@ export default function RouteThumbnail({ points, timeline }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full block" aria-hidden="true">
-      <rect width={W} height={H} fill="#f8fafc" />
-      <polyline points={path(0, xy.length - 1)} {...LINE} stroke="rgba(11,11,11,0.55)" strokeWidth="5" />
+      <rect width={W} height={H} className="fill-slate-50 dark:fill-slate-900" />
+      <polyline points={path(0, xy.length - 1)} {...LINE} strokeWidth="5" className="stroke-black/[0.55] dark:stroke-black/[0.75]" />
       {runs
         ? runs.map((run) => <polyline key={run.start} points={path(run.start, run.end)} {...LINE} stroke={run.color} strokeWidth="3" />)
         : <polyline points={path(0, xy.length - 1)} {...LINE} stroke="#B4B2A9" strokeWidth="3" />}
-      <circle cx={xy[0][0]} cy={xy[0][1]} r="3.5" fill="#0b0b0b" stroke="#fff" strokeWidth="1.5" />
+      <circle cx={xy[0][0]} cy={xy[0][1]} r="3.5" fill="#0b0b0b" strokeWidth="1.5" className="stroke-white dark:stroke-slate-300" />
     </svg>
   )
 }

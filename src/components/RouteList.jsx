@@ -11,7 +11,7 @@
 import { X } from 'lucide-react'
 import ScoreBreakdown from './ScoreBreakdown.jsx'
 import RouteThumbnail from './RouteThumbnail.jsx'
-import { colorForScore } from '../services/scoringEngine'
+import { scoreToneClass } from '../services/scoringEngine'
 import { formatTime } from '../services/format'
 
 export default function RouteList({ routes, selectedId, onSelect, onRemove, isLoading }) {
@@ -31,29 +31,29 @@ export default function RouteList({ routes, selectedId, onSelect, onRemove, isLo
               aria-pressed={selected}
               aria-label={cardLabel(route, analysis, isLoading)}
               aria-describedby={analysis ? `${breakdownId} ${summaryId}` : summaryId}
-              className={`min-w-0 flex-1 text-left bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${selected ? 'ring-2 ring-blue-600' : ''}`}
+              className={`min-w-0 flex-1 text-left bg-white dark:bg-slate-800 rounded-xl shadow-md p-4 hover:shadow-lg transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${selected ? 'ring-2 ring-blue-600' : ''}`}
             >
               <span className="grid grid-cols-[6rem_minmax(0,1fr)] sm:grid-cols-[10rem_minmax(0,1fr)] items-center gap-x-3 sm:gap-x-4 gap-y-2">
-                <span className="block aspect-[10/7] rounded overflow-hidden border">
+                <span className="block aspect-[10/7] rounded overflow-hidden border dark:border-slate-700">
                   <RouteThumbnail points={route.points} timeline={analysis?.timeline} />
                 </span>
                 <span className="contents sm:block">
                   <span className="flex flex-wrap items-baseline justify-between gap-x-3">
                     <span className="min-w-0 text-xl sm:text-2xl font-semibold break-words line-clamp-2">{route.name}</span>
                     {analysis ? (
-                      <span className="text-2xl sm:text-3xl font-extrabold shrink-0" style={{ color: colorForScore(analysis.score) }}>
-                        {analysis.score.toFixed(1)}<span className="text-gray-400 text-base sm:text-xl">/10</span>
+                      <span className={`text-2xl sm:text-3xl font-extrabold shrink-0 ${scoreToneClass(analysis.score)}`}>
+                        {analysis.score.toFixed(1)}<span className="text-gray-400 dark:text-slate-500 text-base sm:text-xl">/10</span>
                       </span>
                     ) : (
-                      <span className="text-sm text-gray-500 shrink-0">{isLoading ? 'Loading…' : 'No forecast'}</span>
+                      <span className="text-sm text-gray-500 dark:text-slate-400 shrink-0">{isLoading ? 'Loading…' : 'No forecast'}</span>
                     )}
                   </span>
                   {analysis && (
-                    <span id={breakdownId} className="col-span-2 block text-gray-600 sm:mt-1">
+                    <span id={breakdownId} className="col-span-2 block text-gray-600 dark:text-slate-400 sm:mt-1">
                       <ScoreBreakdown breakdown={analysis.breakdown} />
                     </span>
                   )}
-                  <span id={summaryId} className="col-span-2 block text-gray-700 sm:mt-2 text-sm">{describeRide(route, analysis)}</span>
+                  <span id={summaryId} className="col-span-2 block text-gray-700 dark:text-slate-300 sm:mt-2 text-sm">{describeRide(route, analysis)}</span>
                 </span>
               </span>
             </button>
@@ -62,7 +62,7 @@ export default function RouteList({ routes, selectedId, onSelect, onRemove, isLo
               onClick={() => onRemove?.(route.id)}
               aria-label={`Remove ${route.name}`}
               title={`Remove ${route.name}`}
-              className="shrink-0 px-2 rounded-xl border bg-white text-gray-400 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+              className="shrink-0 px-2 rounded-xl border dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-400 dark:text-slate-500 hover:text-red-700 dark:hover:text-red-400 hover:border-red-300 dark:hover:border-red-800 hover:bg-red-50 dark:hover:bg-red-950 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
             >
               <X size={18} aria-hidden="true" />
             </button>

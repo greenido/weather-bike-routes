@@ -64,7 +64,7 @@ export default function HelpContent() {
 function Section({ title, children }) {
   return (
     <section className="space-y-2">
-      <h3 className="font-semibold text-gray-900">{title}</h3>
+      <h3 className="font-semibold text-gray-900 dark:text-slate-100">{title}</h3>
       {children}
     </section>
   )

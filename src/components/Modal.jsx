@@ -59,24 +59,24 @@ export default function Modal({ title, open, onClose, children, footer }) {
   if (!open) return null
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} aria-hidden="true" />
+      <div className="absolute inset-0 bg-black/30 dark:bg-black/60" onClick={onClose} aria-hidden="true" />
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative bg-white w-full max-w-lg max-h-[calc(100dvh-2rem)] flex flex-col rounded-xl shadow-lg border mx-4 focus:outline-none"
+        className="relative bg-white dark:bg-slate-800 w-full max-w-lg max-h-[calc(100dvh-2rem)] flex flex-col rounded-xl shadow-lg border dark:border-slate-700 mx-4 focus:outline-none"
       >
         <div className="flex items-center justify-between px-4 pt-4 pb-3">
           <h2 id={titleId} className="text-lg font-semibold">{title}</h2>
-          <button className="text-gray-500 hover:text-gray-700" onClick={onClose} aria-label="Close">✕</button>
+          <button className="text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200" onClick={onClose} aria-label="Close">✕</button>
         </div>
-        <div ref={bodyRef} tabIndex={-1} className="min-h-0 overflow-y-auto px-4 pb-4 text-sm text-gray-800 space-y-3 focus:outline-none">
+        <div ref={bodyRef} tabIndex={-1} className="min-h-0 overflow-y-auto px-4 pb-4 text-sm text-gray-800 dark:text-slate-200 space-y-3 focus:outline-none">
           {children}
         </div>
         {footer && (
-          <div className="px-4 pt-3 pb-4 border-t flex justify-end gap-2">
+          <div className="px-4 pt-3 pb-4 border-t dark:border-slate-700 flex justify-end gap-2">
             {footer}
           </div>
         )}

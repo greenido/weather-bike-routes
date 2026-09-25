@@ -3,17 +3,49 @@
   Purpose: Base HTML document; Vite injects the React bundle mounted at #root.
   Notes:
   - Tailwind classes applied to #root to provide base background and min-height.
+  - The inline script picks the theme before the first paint, so a dark-mode visitor never sees a white flash.
+    It is the one place the theme is read without React; `src/services/theme.js` owns it afterwards.
+  - Links into `public/` start with "/" so Vite rewrites them with the deploy's base path; relative ones would
+    break on the generated 404.html, which is served from whatever path the visitor asked for.
+  - Open Graph needs absolute URLs: a scraper has no page to resolve a relative one against. SITE_URL below is
+    the only place the deployed address is written down; change it if the app moves.
 -->
 <!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/x-icon" href="favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>🚴🏼‍♂️ Bike Route Weather</title>
+    <meta name="description" content="Compare your GPX routes by the weather you'll actually ride through. Each point gets the forecast for the time you reach it, and every route is scored out of 10." />
+    <meta name="theme-color" content="#f9fafb" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f172a" media="(prefers-color-scheme: dark)" />
+
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
+    <!-- SITE_URL: https://greenido.github.io/weather-bike-routes/ -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://greenido.github.io/weather-bike-routes/" />
+    <meta property="og:site_name" content="Bike Route Weather" />
+    <meta property="og:title" content="🚴🏼‍♂️ Bike Route Weather" />
+    <meta property="og:description" content="Upload your GPX routes and see which one has the best weather for the ride: temperature along the way, wind on every stretch of road, rain, and a score out of 10." />
+    <meta property="og:image" content="https://greenido.github.io/weather-bike-routes/icons/icon-512.png" />
+    <meta name="twitter:card" content="summary" />
+
+    <script>
+      // Kept in sync with THEME_STORAGE_KEY in src/services/theme.js.
+      try {
+        const saved = localStorage.getItem('bikeRouteWeather.theme')
+        const dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
+        if (dark) document.documentElement.classList.add('dark')
+      } catch {
+        // Storage can be blocked; the app then opens in light mode.
+      }
+    </script>
   </head>
   <body>
-    <div id="root" class="min-h-screen bg-gray-50"></div>
+    <div id="root" class="min-h-screen bg-gray-50 dark:bg-slate-900"></div>
     <script type="module" src="./src/main.jsx"></script>
   </body>
 </html>

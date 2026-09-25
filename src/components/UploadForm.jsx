@@ -23,15 +23,15 @@ export default function UploadForm({ onFiles }) {
 
   return (
     <div
-      className="border-2 border-dashed border-gray-400 rounded-xl p-6 bg-white flex flex-col items-center justify-center text-center"
+      className="border-2 border-dashed border-gray-400 dark:border-slate-600 rounded-xl p-6 bg-white dark:bg-slate-800 flex flex-col items-center justify-center text-center"
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault()
         handleFiles(e.dataTransfer.files)
       }}
     >
-      <p className="text-lg text-gray-700">Drag & drop GPX files here</p>
-      <p className="text-sm text-gray-500 mb-3">They join the routes you already added.</p>
+      <p className="text-lg text-gray-700 dark:text-slate-300">Drag & drop GPX files here</p>
+      <p className="text-sm text-gray-500 dark:text-slate-400 mb-3">They join the routes you already added.</p>
       <button
         className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
         onClick={() => inputRef.current?.click()}

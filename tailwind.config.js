@@ -4,6 +4,9 @@
  */
 /** @type {import('tailwindcss').Config} */
 export default {
+  // Dark mode follows the `dark` class on <html>, set by index.html before the first paint and by theme.js
+  // afterwards, so a rider can override their system setting from the top bar.
+  darkMode: 'class',
   content: [
     './index.html',
     './src/**/*.{js,jsx,ts,tsx}',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateRouteScore, colorForScore, ramp, windPenalty } from './scoringEngine'
+import { calculateRouteScore, ramp, scoreToneClass, windPenalty } from './scoringEngine'
 
 const ideal = {
   avgWindKph: 5,
@@ -112,8 +112,12 @@ describe('windPenalty', () => {
   })
 })
 
-describe('colorForScore', () => {
-  it('uses colors that stay readable on white', () => {
-    expect([colorForScore(9), colorForScore(7), colorForScore(3)]).toEqual(['#15803d', '#b45309', '#b91c1c'])
+describe('scoreToneClass', () => {
+  it('gives each band a color for both themes', () => {
+    expect([scoreToneClass(9), scoreToneClass(7), scoreToneClass(3)]).toEqual([
+      'text-green-700 dark:text-green-400',
+      'text-amber-700 dark:text-amber-400',
+      'text-red-700 dark:text-red-400',
+    ])
   })
 })
