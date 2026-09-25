@@ -97,7 +97,7 @@ describe('App', () => {
   it('ranks routes by the weather along them and opens the best one', async () => {
     const user = await renderWithRoutes('hill-climb.gpx', 'river-loop.gpx')
     await screen.findAllByRole('button', { name: /out of 10$/ })
-    expect(cardLabels()).toEqual(['river-loop.gpx, score 10.0 out of 10', 'hill-climb.gpx, score 8.0 out of 10'])
+    expect(cardLabels()).toEqual(['river-loop.gpx, score 10.0 out of 10', 'hill-climb.gpx, score 7.9 out of 10'])
     // One Open-Meteo request per route.
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(fetchMock.mock.calls.every(([url]) => url.startsWith('https://api.open-meteo.com/'))).toBe(true)

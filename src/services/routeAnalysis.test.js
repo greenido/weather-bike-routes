@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { haversineKm } from './geo'
-import { analyzeRoute, buildRouteTimeline, estimateArrivalTimes, rideAdvice, summarizeRide } from './routeAnalysis'
+import { analyzeRoute, buildRouteTimeline, estimateArrivalTimes, forecastLeadDays, rideAdvice, summarizeRide } from './routeAnalysis'
 
 const HOUR = 3600 * 1000
 const START = Date.UTC(2026, 8, 12, 6)
@@ -72,6 +72,8 @@ describe('buildRouteTimeline', () => {
   })
 })
 
+const mean = (values) => values.reduce((sum, v) => sum + v, 0) / values.length
+
 describe('summarizeRide', () => {
   it('counts wind from the direction of travel as headwind', () => {
     const summary = summarizeRide(flatTimeline(northward(10), { windKph: 20, windFromDeg: 0 }))
@@ -101,6 +103,30 @@ describe('summarizeRide', () => {
     expect(points[summary.rainIndex].km).toBeCloseTo(7, 1)
     expect(summary.comfortShare).toBeCloseTo(0.5, 1)
     expect(summary.feelsLikeC).toHaveLength(101)
+  })
+
+  it('resamples rain and gusts by distance so scoring weights every km the same', () => {
+    // Rain only over the last km of ten: the peak is 60%, but almost none of the ride is wet.
+    const summary = summarizeRide(flatTimeline(northward(10), (p) => ({
+      rainChance: p.km > 9 ? 60 : 0,
+      gustKph: p.km > 9 ? 70 : 5,
+    })))
+    expect(summary.rainChance).toHaveLength(101)
+    expect(summary.gustKph).toHaveLength(101)
+    expect(summary.maxRainChance).toBe(60)
+    expect(summary.maxGustKph).toBe(70)
+    expect(mean(summary.rainChance)).toBeLessThan(10)
+    expect(mean(summary.gustKph)).toBeLessThan(15)
+  })
+})
+
+describe('forecastLeadDays', () => {
+  const now = Date.UTC(2026, 8, 12, 9)
+  const inDays = (days) => forecastLeadDays(now + days * 24 * 60 * 60 * 1000, now)
+
+  it('rounds to whole days and never goes negative', () => {
+    expect([inDays(0), inDays(1.4), inDays(1.6), inDays(9)]).toEqual([0, 1, 2, 9])
+    expect(inDays(-3)).toBe(0)
   })
 })
 
