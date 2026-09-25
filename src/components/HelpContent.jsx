@@ -15,7 +15,7 @@ export default function HelpContent() {
 
       <Section title="How to use it">
         <ol className="list-decimal pl-5 space-y-1">
-          <li>Set the day and time you’ll start (up to {MAX_DAYS_AHEAD} days ahead) and your average speed. The app expects you to slow down on climbs and speed up downhill.</li>
+          <li>Set the day and time you’ll start (up to {MAX_DAYS_AHEAD} days ahead) and your average speed while moving. The app expects you to slow down on climbs and speed up downhill. If you plan to stop — coffee, photos, a long light — add that time too, and it is spread along the ride.</li>
           <li>Add one or more GPX files (tracks or routes): drop them on the upload area or choose them.</li>
           <li>Compare the scores. The best route is on top; select a card to see its details.</li>
           <li>Try another start time or speed. The scores update by themselves.</li>

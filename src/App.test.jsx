@@ -192,6 +192,18 @@ describe('App', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
+  it('pushes the finish later when stops are expected', async () => {
+    const user = await renderWithRoutes('river-loop.gpx')
+    await screen.findByRole('button', { name: /out of 10$/ })
+    const finishBefore = screen.getByRole('button', { name: /out of 10$/ }).textContent.match(/back (\S+ \S+)/)[1]
+
+    await user.selectOptions(screen.getByLabelText('Time stopped'), '30')
+    await waitFor(() => {
+      const finishAfter = screen.getByRole('button', { name: /out of 10$/ }).textContent.match(/back (\S+ \S+)/)[1]
+      expect(finishAfter).not.toBe(finishBefore)
+    })
+  })
+
   it('recalculates once after a burst of speed changes', async () => {
     await renderWithRoutes('river-loop.gpx')
     await screen.findByRole('button', { name: /out of 10$/ })

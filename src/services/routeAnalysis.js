@@ -2,7 +2,9 @@
   File: src/services/routeAnalysis.js
   Purpose: Turn a parsed route, a start time, and an average speed into "what this ride will be like".
   What it does:
-  - estimateArrivalTimes(points, startMs, speedKph): when you reach each point (slower uphill, faster downhill).
+  - estimateArrivalTimes(points, startMs, speedKph, stoppedMs): when you reach each point (slower uphill, faster
+    downhill). `speedKph` is the speed while moving; `stoppedMs` is time off the bike — coffee, lights, photos —
+    spread along the ride by distance, so every arrival after the first drifts later.
   - buildRouteTimeline(points, sampleIdx, conditions, etas): weather at every point, interpolated by distance
     between the sampled forecasts, with temperatures adjusted for elevation (−0.65°C per 100 m of climb).
   - summarizeRide(timeline): distance-weighted wind (with the headwind part computed per road segment),
@@ -31,7 +33,7 @@ const lerp = (a, b, w) => a + (b - a) * w
 const toRad = (deg) => (deg * Math.PI) / 180
 const windVector = (p) => [p.windKph * Math.sin(toRad(p.windFromDeg)), p.windKph * Math.cos(toRad(p.windFromDeg))]
 
-export function estimateArrivalTimes(points, startMs, speedKph) {
+export function estimateArrivalTimes(points, startMs, speedKph, stoppedMs = 0) {
   const etas = [startMs]
   let legStart = 0
   let legStartMs = startMs
@@ -48,7 +50,11 @@ export function estimateArrivalTimes(points, startMs, speedKph) {
     legStart = i
     legStartMs += legMs
   }
-  return etas
+  if (!stoppedMs) return etas
+  // Stops happen at particular places, but which ones is unknowable; spreading them by distance keeps every
+  // arrival after the first honest on average, and gets the finish time exactly right.
+  const totalKm = points.at(-1).km
+  return totalKm > 0 ? etas.map((eta, i) => eta + (stoppedMs * points[i].km) / totalKm) : etas
 }
 
 export function buildRouteTimeline(points, sampleIdx, conditions, etas) {
@@ -178,8 +184,8 @@ export function forecastLeadDays(startMs, now = Date.now()) {
   return Math.max(0, Math.round((startMs - now) / DAY_MS))
 }
 
-export async function analyzeRoute(route, { startMs, speedKph, apiKey, signal, getForecasts = fetchForecasts }) {
-  const etas = estimateArrivalTimes(route.points, startMs, speedKph)
+export async function analyzeRoute(route, { startMs, speedKph, stoppedMs = 0, apiKey, signal, getForecasts = fetchForecasts }) {
+  const etas = estimateArrivalTimes(route.points, startMs, speedKph, stoppedMs)
   const samplePoints = route.sampleIdx.map((i) => route.points[i])
   const sampleEtas = route.sampleIdx.map((i) => etas[i])
   const forecasts = await getForecasts(samplePoints, sampleEtas[0], sampleEtas.at(-1), { apiKey, signal })

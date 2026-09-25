@@ -31,6 +31,22 @@ describe('estimateArrivalTimes', () => {
     expect((etas.at(-1) - START) / HOUR).toBeCloseTo(3, 2)
   })
 
+  it('adds time stopped, spread along the ride, without changing the start', () => {
+    const points = northward(72)
+    const moving = estimateArrivalTimes(points, START, 24)
+    const withStops = estimateArrivalTimes(points, START, 24, 30 * 60 * 1000)
+
+    expect(withStops[0]).toBe(START) // You have not stopped yet at the start line.
+    expect((withStops.at(-1) - moving.at(-1)) / 60000).toBeCloseTo(30, 6) // All of it by the finish.
+    const half = Math.round((points.length - 1) / 2)
+    expect((withStops[half] - moving[half]) / 60000).toBeCloseTo(15, 1) // About half of it halfway round.
+  })
+
+  it('leaves the estimate untouched when no stops are expected', () => {
+    const points = northward(30)
+    expect(estimateArrivalTimes(points, START, 24, 0)).toEqual(estimateArrivalTimes(points, START, 24))
+  })
+
   it('slows down on climbs and speeds up on descents', () => {
     const up = estimateArrivalTimes(northward(20, (km) => 100 + km * 50), START, 22).at(-1)
     const down = estimateArrivalTimes(northward(20, (km) => 1100 - km * 50), START, 22).at(-1)
