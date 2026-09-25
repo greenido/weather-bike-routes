@@ -23,7 +23,8 @@ const E_TOP = 168
 const E_BOTTOM = 214
 const TOOLTIP_GAP = 12
 const TOOLTIP_TOP = 4
-const ELEVATION_GRAY = '#888780'
+const ELEVATION_FILL = 'fill-[#888780] dark:fill-[#a8a69c]'
+const ELEVATION_STROKE = 'stroke-[#888780] dark:stroke-[#a8a69c]'
 const MIN_TICK_PX = 84
 const KM_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200]
 // The chart is on the page once, so a fixed id is safe (React's useId ids contain « », awkward inside url()).
@@ -73,9 +74,9 @@ export default function RouteProfile({ timeline, sampleIdx, hoverIndex, onHover 
   return (
     <div>
       <div className="mb-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs" style={{ paddingLeft: X0, paddingRight: RIGHT_PAD }}>
-        <span className="text-gray-700">Temperature when you get there</span>
-        <span className="inline-flex items-center gap-1.5 text-gray-500">
-          <span className="inline-block h-[11px] w-[14px] rounded-sm bg-black/[0.08]" aria-hidden="true" />
+        <span className="text-gray-700 dark:text-slate-300">Temperature when you get there</span>
+        <span className="inline-flex items-center gap-1.5 text-gray-500 dark:text-slate-400">
+          <span className="inline-block h-[11px] w-[14px] rounded-sm bg-black/[0.08] dark:bg-white/[0.12]" aria-hidden="true" />
           Comfort {COMFORT_MIN_C}–{COMFORT_MAX_C}°C
         </span>
       </div>
@@ -97,11 +98,11 @@ export default function RouteProfile({ timeline, sampleIdx, hoverIndex, onHover 
         >
           {chart.tempTicks.map((t) => (
             <g key={t}>
-              <line x1={X0} x2={chart.x1} y1={yT(t)} y2={yT(t)} stroke="#e5e7eb" />
-              <text x={X0 - 8} y={yT(t) + 4} fontSize="12" textAnchor="end" className="fill-gray-500 tabular-nums">{t}°</text>
+              <line x1={X0} x2={chart.x1} y1={yT(t)} y2={yT(t)} className="stroke-gray-200 dark:stroke-slate-700" />
+              <text x={X0 - 8} y={yT(t) + 4} fontSize="12" textAnchor="end" className="fill-gray-500 dark:fill-slate-400 tabular-nums">{t}°</text>
             </g>
           ))}
-          <rect x={X0} y={yT(COMFORT_MAX_C)} width={chart.x1 - X0} height={yT(COMFORT_MIN_C) - yT(COMFORT_MAX_C)} fill="rgba(11,11,11,0.05)" />
+          <rect x={X0} y={yT(COMFORT_MAX_C)} width={chart.x1 - X0} height={yT(COMFORT_MIN_C) - yT(COMFORT_MAX_C)} className="fill-black/[0.05] dark:fill-white/[0.07]" />
           <defs>
             <linearGradient id={GRADIENT_ID} gradientUnits="userSpaceOnUse" x1="0" x2="0" y1={yT(chart.lo)} y2={yT(chart.hi)}>
               {chart.gradientStops.map(({ offset, color }) => <stop key={offset} offset={offset} stopColor={color} />)}
@@ -111,28 +112,28 @@ export default function RouteProfile({ timeline, sampleIdx, hoverIndex, onHover 
 
           {hasElevation && (
             <g>
-              <text x={X0} y={E_TOP - 12} fontSize="12" className="fill-gray-700">Elevation</text>
-              <line x1={X0} x2={chart.x1} y1={E_TOP} y2={E_TOP} stroke="#e5e7eb" />
-              <text x={X0 - 8} y={E_TOP + 4} fontSize="12" textAnchor="end" className="fill-gray-500 tabular-nums">{chart.eleMax} m</text>
-              <text x={X0 - 8} y={E_BOTTOM} fontSize="12" textAnchor="end" className="fill-gray-500 tabular-nums">{chart.eleMin} m</text>
-              <path d={chart.elevationArea} fill={ELEVATION_GRAY} fillOpacity="0.14" />
-              <polyline points={chart.elevationLine} fill="none" stroke={ELEVATION_GRAY} strokeWidth="1.5" strokeLinejoin="round" />
+              <text x={X0} y={E_TOP - 12} fontSize="12" className="fill-gray-700 dark:fill-slate-300">Elevation</text>
+              <line x1={X0} x2={chart.x1} y1={E_TOP} y2={E_TOP} className="stroke-gray-200 dark:stroke-slate-700" />
+              <text x={X0 - 8} y={E_TOP + 4} fontSize="12" textAnchor="end" className="fill-gray-500 dark:fill-slate-400 tabular-nums">{chart.eleMax} m</text>
+              <text x={X0 - 8} y={E_BOTTOM} fontSize="12" textAnchor="end" className="fill-gray-500 dark:fill-slate-400 tabular-nums">{chart.eleMin} m</text>
+              <path d={chart.elevationArea} fillOpacity="0.14" className={ELEVATION_FILL} />
+              <polyline points={chart.elevationLine} fill="none" strokeWidth="1.5" strokeLinejoin="round" className={ELEVATION_STROKE} />
             </g>
           )}
 
-          <line x1={X0} x2={chart.x1} y1={axisY} y2={axisY} stroke="#d1d5db" />
+          <line x1={X0} x2={chart.x1} y1={axisY} y2={axisY} className="stroke-gray-300 dark:stroke-slate-600" />
           {chart.kmTicks.map(({ km, index }) => (
             <g key={km} className="tabular-nums">
-              <text x={xOf(km)} y={axisY + 17} fontSize="12" textAnchor={km === 0 ? 'start' : 'middle'} className="fill-gray-700">{km === 0 ? 'Start' : `${km} km`}</text>
-              <text x={xOf(km)} y={axisY + 33} fontSize="12" textAnchor={km === 0 ? 'start' : 'middle'} className="fill-gray-500">{formatTime(timeline[index].eta)}</text>
+              <text x={xOf(km)} y={axisY + 17} fontSize="12" textAnchor={km === 0 ? 'start' : 'middle'} className="fill-gray-700 dark:fill-slate-300">{km === 0 ? 'Start' : `${km} km`}</text>
+              <text x={xOf(km)} y={axisY + 33} fontSize="12" textAnchor={km === 0 ? 'start' : 'middle'} className="fill-gray-500 dark:fill-slate-400">{formatTime(timeline[index].eta)}</text>
             </g>
           ))}
 
           {hovered && (
             <g pointerEvents="none">
-              <line x1={hoverX} x2={hoverX} y1={T_TOP} y2={axisY} stroke="#4b5563" />
-              <circle cx={hoverX} cy={yT(hovered.tempC)} r="5" fill={temperatureColor(hovered.tempC)} stroke="#fff" strokeWidth="2" />
-              {hasElevation && <circle cx={hoverX} cy={yE(hovered.ele)} r="4.5" fill={ELEVATION_GRAY} stroke="#fff" strokeWidth="2" />}
+              <line x1={hoverX} x2={hoverX} y1={T_TOP} y2={axisY} className="stroke-gray-600 dark:stroke-slate-300" />
+              <circle cx={hoverX} cy={yT(hovered.tempC)} r="5" fill={temperatureColor(hovered.tempC)} strokeWidth="2" className="stroke-white dark:stroke-slate-800" />
+              {hasElevation && <circle cx={hoverX} cy={yE(hovered.ele)} r="4.5" strokeWidth="2" className={`${ELEVATION_FILL} stroke-white dark:stroke-slate-800`} />}
             </g>
           )}
         </svg>
@@ -140,11 +141,11 @@ export default function RouteProfile({ timeline, sampleIdx, hoverIndex, onHover 
         {hovered && (
           <div
             ref={tooltipRef}
-            className="pointer-events-none absolute z-10 whitespace-nowrap rounded-md border bg-white/95 px-2.5 py-1.5 text-xs leading-5 text-gray-600 shadow-sm"
+            className="pointer-events-none absolute z-10 whitespace-nowrap rounded-md border dark:border-slate-700 bg-white/95 dark:bg-slate-800/95 px-2.5 py-1.5 text-xs leading-5 text-gray-600 dark:text-slate-400 shadow-sm"
             style={tooltipPosition(hoverX, yT(hovered.tempC), tooltipSize, width)}
           >
-            <div className="text-sm font-semibold text-gray-900">
-              {hovered.tempC.toFixed(1)}°C <span className="font-normal text-gray-600">feels like {Math.round(hovered.feelsLikeC)}°</span>
+            <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+              {hovered.tempC.toFixed(1)}°C <span className="font-normal text-gray-600 dark:text-slate-400">feels like {Math.round(hovered.feelsLikeC)}°</span>
             </div>
             <div>km {hovered.km.toFixed(1)} · {formatTime(hovered.eta)}{Number.isFinite(hovered.ele) ? ` · ${Math.round(hovered.ele)} m` : ''}</div>
             <div>Wind {Math.round(hovered.windKph)} km/h {compassPoint(hovered.windFromDeg)} · rain {Math.round(hovered.rainChance)}%</div>
@@ -153,17 +154,17 @@ export default function RouteProfile({ timeline, sampleIdx, hoverIndex, onHover 
       </div>
 
       <details className="mt-2 text-sm">
-        <summary className="cursor-pointer text-gray-600 hover:text-gray-900">Show forecast points as a table</summary>
+        <summary className="cursor-pointer text-gray-600 dark:text-slate-400 hover:text-gray-900 dark:hover:text-slate-100">Show forecast points as a table</summary>
         <div className="mt-2 overflow-x-auto">
           <table className="min-w-full text-left tabular-nums">
-            <thead className="text-gray-500">
+            <thead className="text-gray-500 dark:text-slate-400">
               <tr>{['km', 'Time', 'Temp', 'Feels like', 'Wind', 'Gusts', 'Rain'].map((h) => <th key={h} scope="col" className="py-1 pr-4 font-medium">{h}</th>)}</tr>
             </thead>
             <tbody>
               {sampleIdx.map((i) => {
                 const p = timeline[i]
                 return (
-                  <tr key={i} className="border-t">
+                  <tr key={i} className="border-t dark:border-slate-700">
                     <td className="py-1 pr-4">{p.km.toFixed(1)}</td>
                     <td className="py-1 pr-4">{formatTime(p.eta)}</td>
                     <td className="py-1 pr-4">{p.tempC.toFixed(1)}°C</td>

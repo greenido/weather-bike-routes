@@ -15,6 +15,8 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - Route list sorted by score, with a temperature-colored sketch of each route and the score breakdown
 - IndexedDB forecast cache (2 hours) so changing the start time or speed doesn't refetch; the uploaded routes live there too, so a reload comes back scored without fetching anything
 - Works with [Weather 4 Bike](https://greenido.github.io/weather-4-bike/): its "Score your GPX" link opens this app on its best riding window and your speed, and the header links back (see [Opening from Weather 4 Bike](#opening-from-weather-4-bike))
+- Installable, and opens without a connection: an app manifest plus a service worker that keeps the app shell in the browser's cache. Map tiles and forecasts are never cached by the worker (see [Notes & limits](#notes--limits))
+- Light and dark themes: follows the system setting, with a switch in the top bar that overrides it and is remembered
 - Guided tour for first-time visitors: first the ride settings, upload, Settings, and Help, then the results the first time a route is scored. Help can replay it, and explains how to use the app, how to read a route, the exact scoring numbers, where forecasts come from, and what leaves the browser
 
 ## Architecture
@@ -25,6 +27,8 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - Caching: `idb` (IndexedDB)
 - Weather APIs: Open-Meteo Forecast API (default), Visual Crossing Timeline API (optional)
 - Guided tour: `react-joyride`, loaded only when a tour runs
+- Offline: a hand-written service worker (`public/sw.js`), no build plugin
+- Theming: Tailwind's class-based dark mode, with the theme picked before the first paint by an inline script in `index.html`
 - Tests: Vitest, with React Testing Library and happy-dom for the UI
 
 ### Key modules
@@ -37,7 +41,9 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - `src/components/MapPreview.jsx`: Leaflet map with the temperature-colored route, temperature labels, arrows, callouts, and the hover readout
 - `src/components/RouteProfile.jsx`: Temperature and elevation chart with crosshair, keyboard support, and table view
 - `src/components/ScoreBreakdown.jsx`: Penalty breakdown with icons
-- `src/components/TopNav.jsx`: Sticky header with Settings & Help actions and a link back to Weather 4 Bike
+- `src/components/TopNav.jsx`: Sticky header with the theme switch, Settings & Help actions, and a link back to Weather 4 Bike
+- `src/components/ThemeToggle.jsx`: The light/dark switch
+- `src/services/theme.js`: Which theme to show, and remembering a rider's choice
 - `src/components/Modal.jsx`: Accessible portal-based dialog used by Settings/Help; long content scrolls
 - `src/components/HelpContent.jsx`: What the Help dialog says
 - `src/components/GuidedTour.jsx`: The first-run tour: its steps, when each part runs, and progress saved in localStorage. Steps point at `data-tour` attributes
@@ -107,7 +113,9 @@ Without `speed`, the app uses the speed you set in Weather 4 Bike's settings. Bo
 
 - Very dense GPX tracks are thinned to about 2,000 points so the map, chart, and analysis stay fast; distances are measured on the full track first.
 - Leaflet and its stylesheet load only when a route is first shown: about a third of the app's JavaScript and half its CSS, none of it needed before a GPX file is uploaded. `react-joyride` is split out the same way.
-- Map tiles come from OpenStreetMap (shown in grayscale so the temperature colors stand out) and follow the [OSM tile usage policy](https://operations.osmfoundation.org/policies/tiles/); switch to a tile provider for heavy traffic.
+- Map tiles come from OpenStreetMap (shown in grayscale so the temperature colors stand out, and inverted in dark mode) and follow the [OSM tile usage policy](https://operations.osmfoundation.org/policies/tiles/); switch to a tile provider for heavy traffic.
+- The service worker caches only same-origin files: the app shell and the hashed build output. Map tiles are left alone because the OSM tile policy asks apps not to stockpile them, and forecasts are left alone because they already expire after two hours in IndexedDB, which a service worker cache has no way to honour. So the app opens offline, but scoring a route still needs a connection unless its forecast is already cached.
+- The worker is registered only in a production build; `npm run dev` never installs one. It takes effect from the second load, as service workers always do.
 - Open-Meteo's free API is for non-commercial use; see [its terms](https://open-meteo.com/en/terms) before using it commercially.
 - This is a client-only app; the optional API key is stored locally and used directly from the browser.
 
@@ -115,7 +123,7 @@ Without `speed`, the app uses the speed you set in Weather 4 Bike's settings. Bo
 
 - `npm run dev`: Start Vite dev server
 - `npm run build`: Production build
-- `npm run preview`: Preview built app
+- `npm run preview`: Preview built app. This is the only way to exercise the service worker and the install prompt, since neither runs under `npm run dev`.
 - `npm run lint`: Run ESLint
 - `npm test`: Run all tests (Vitest). Service tests run in Node. Component and app tests (`*.test.jsx`), and the GPX parser tests (which need `DOMParser`), run in a simulated browser via `// @vitest-environment happy-dom` at the top of the file. The app tests replace only the network, GPX parsing (tested on its own), and the Leaflet map. Shared test routes live in `src/test/fixtures.js`.
 

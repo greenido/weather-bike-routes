@@ -38,11 +38,11 @@ export default function RouteDetail({ route }) {
   return (
     <section className="mt-8" aria-labelledby="route-detail-title">
       <h3 id="route-detail-title" className="text-2xl font-semibold">{route.name}</h3>
-      <p className="text-sm text-gray-600 mt-1">
+      <p className="text-sm text-gray-600 dark:text-slate-400 mt-1">
         {Math.round(route.totalKm)} km · start {formatTime(summary.startMs)} · back around {formatTime(summary.endMs)}
       </p>
       {leadDays >= UNCERTAIN_AFTER_DAYS && (
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
           This ride is {leadDays} days out, so the forecast — and the score — will still move before you set off.
         </p>
       )}
@@ -54,26 +54,26 @@ export default function RouteDetail({ route }) {
         <Stat label="In comfort band" value={`${Math.round(summary.comfortShare * 100)}%`} detail="of the ride at 15–22°C" />
       </div>
 
-      <ul className="mt-4 space-y-1 text-sm text-gray-700" data-tour="tips">
+      <ul className="mt-4 space-y-1 text-sm text-gray-700 dark:text-slate-300" data-tour="tips">
         {rideAdvice(timeline, summary, formatTime).map((tip) => (
           <li key={tip} className="flex gap-2">
-            <Shirt size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-gray-500" />
+            <Shirt size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-gray-500 dark:text-slate-400" />
             {tip}
           </li>
         ))}
       </ul>
 
       <div className="mt-5 mb-2 flex flex-wrap items-end justify-between gap-2">
-        <span className="text-sm text-gray-700">Temperature when you reach each point (°C)</span>
+        <span className="text-sm text-gray-700 dark:text-slate-300">Temperature when you reach each point (°C)</span>
         <TemperatureLegend />
       </div>
       {/* `isolate` keeps Leaflet's layers (z-index 400–1000) under the sticky top bar and the tour. */}
-      <div className="h-96 rounded-xl overflow-hidden border isolate" data-tour="map">
+      <div className="h-96 rounded-xl overflow-hidden border dark:border-slate-700 isolate" data-tour="map">
         <Suspense fallback={<MapPlaceholder />}>
           <MapPreview timeline={timeline} summary={summary} hoverIndex={hoverIndex} onHover={setHoverIndex} />
         </Suspense>
       </div>
-      <div className="mt-4 rounded-xl border bg-white p-3" data-tour="profile">
+      <div className="mt-4 rounded-xl border dark:border-slate-700 bg-white dark:bg-slate-800 p-3" data-tour="profile">
         <RouteProfile timeline={timeline} sampleIdx={route.sampleIdx} hoverIndex={hoverIndex} onHover={setHoverIndex} />
       </div>
     </section>
@@ -83,7 +83,7 @@ export default function RouteDetail({ route }) {
 // Holds the map's space while its chunk downloads, so the page doesn't jump when it arrives.
 function MapPlaceholder() {
   return (
-    <div className="h-full w-full grid place-items-center bg-gray-100 text-sm text-gray-500" aria-live="polite">
+    <div className="h-full w-full grid place-items-center bg-gray-100 dark:bg-slate-800 text-sm text-gray-500 dark:text-slate-400" aria-live="polite">
       Loading map…
     </div>
   )
@@ -91,10 +91,10 @@ function MapPlaceholder() {
 
 function Stat({ label, value, detail }) {
   return (
-    <div className="rounded-lg bg-white border px-3 py-2">
-      <div className="text-xs text-gray-600">{label}</div>
+    <div className="rounded-lg bg-white dark:bg-slate-800 border dark:border-slate-700 px-3 py-2">
+      <div className="text-xs text-gray-600 dark:text-slate-400">{label}</div>
       <div className="text-xl font-semibold">{value}</div>
-      <div className="text-xs text-gray-500">{detail}</div>
+      <div className="text-xs text-gray-500 dark:text-slate-400">{detail}</div>
     </div>
   )
 }
@@ -105,12 +105,12 @@ export function TemperatureLegend() {
     <div
       role="img"
       aria-label={`Temperature colors: violet and blue when it's cold, turquoise to green for the ${COMFORT_MIN_C}–${COMFORT_MAX_C}°C comfort band, then yellow, orange, and red as it gets hotter.`}
-      className="w-72 max-w-full text-[11px] leading-4 text-gray-500"
+      className="w-72 max-w-full text-[11px] leading-4 text-gray-500 dark:text-slate-400"
     >
       <div className="relative h-5">
-        <span className="absolute top-0 -translate-x-1/2 font-medium text-gray-800" style={{ left: `${legendPct((COMFORT_MIN_C + COMFORT_MAX_C) / 2)}%` }}>comfort</span>
+        <span className="absolute top-0 -translate-x-1/2 font-medium text-gray-800 dark:text-slate-200" style={{ left: `${legendPct((COMFORT_MIN_C + COMFORT_MAX_C) / 2)}%` }}>comfort</span>
         <span
-          className="absolute bottom-0 h-1 border-x border-t border-gray-500"
+          className="absolute bottom-0 h-1 border-x border-t dark:border-slate-700 border-gray-500 dark:border-slate-400"
           style={{ left: `${legendPct(COMFORT_MIN_C)}%`, width: `${legendPct(COMFORT_MAX_C) - legendPct(COMFORT_MIN_C)}%` }}
         />
       </div>

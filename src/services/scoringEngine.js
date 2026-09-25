@@ -4,7 +4,8 @@
   What it does:
   - calculateRouteScore(ride): returns { score, breakdown }. The breakdown holds the points each factor removed
     (negative = bonus), and the score is computed from those same numbers so the UI always adds up.
-  - colorForScore(score): accessible text color for the score (green / amber / red on white).
+  - scoreToneClass(score): Tailwind text colors for the score, one pair per band, readable on the card in
+    either theme (the light shades fall below 4.5:1 on a dark card, so dark mode needs its own).
   Scoring model (penalties are subtracted from 10; the result is clamped to 1–10):
   - Every factor is measured over the whole ride, and every penalty is a straight line between the numbers below,
     so a score moves smoothly when you change the start time or speed instead of jumping a whole point.
@@ -80,8 +81,8 @@ export function calculateRouteScore(ride) {
   return { score: round1(score), breakdown }
 }
 
-export function colorForScore(score) {
-  if (score >= 8) return '#15803d'
-  if (score >= 6) return '#b45309'
-  return '#b91c1c'
+export function scoreToneClass(score) {
+  if (score >= 8) return 'text-green-700 dark:text-green-400'
+  if (score >= 6) return 'text-amber-700 dark:text-amber-400'
+  return 'text-red-700 dark:text-red-400'
 }

@@ -1,6 +1,11 @@
 /*
   File: src/index.css
-  Purpose: Tailwind base and a couple of global layout utilities (full-height root, Leaflet size).
+  Purpose: Tailwind base, a couple of global layout utilities (full-height root, Leaflet size), and the parts of
+  the map that Leaflet styles itself and Tailwind classes can't reach.
+  Notes:
+  - Dark mode keys off the `dark` class on <html> (see tailwind.config.js and src/services/theme.js).
+  - The temperature colors on the route are never re-tinted: only the basemap under them and the chrome around
+    them change, so a color means the same temperature in either theme.
 */
 @tailwind base;
 @tailwind components;
@@ -9,6 +14,11 @@
 /* #root gets min-h-screen in index.html; a fixed 100% height would cut its background off on long pages. */
 html, body {
   height: 100%;
+}
+
+/* Tells the browser to draw native controls — the date picker, scrollbars, form fields — to match. */
+html.dark {
+  color-scheme: dark;
 }
 
 .leaflet-container {
@@ -26,6 +36,16 @@ html, body {
   opacity: 0.75;
 }
 
+/* Inverting the grayscale basemap is what turns OpenStreetMap's own tiles dark; nothing is re-downloaded. */
+.dark .route-map {
+  background: #0b1220;
+}
+
+.dark .route-map .leaflet-tile-pane {
+  filter: grayscale(1) invert(1) contrast(0.82) brightness(0.92);
+  opacity: 0.68;
+}
+
 .leaflet-tooltip.route-label,
 .leaflet-tooltip.route-hover {
   padding: 2px 6px;
@@ -33,12 +53,38 @@ html, body {
   font-weight: 500;
 }
 
+/* Leaflet draws tooltips, the zoom buttons, and the attribution itself, below Tailwind's reach.
+   The attribution needs `.leaflet-container` in the selector to outrank Leaflet's own white background; without
+   it the credit ends up light-on-light, and that credit has to stay readable. */
+.dark .leaflet-tooltip,
+.dark .leaflet-bar a,
+.dark .leaflet-container .leaflet-control-attribution {
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.dark .leaflet-bar a {
+  border-bottom-color: #334155;
+}
+
+.dark .leaflet-bar a:hover {
+  background: #334155;
+}
+
+.dark .leaflet-container .leaflet-control-attribution a {
+  color: #93c5fd;
+}
+
+.dark .leaflet-tooltip-top::before {
+  border-top-color: #1e293b;
+}
+
 /* Temperature labels along the route. The marker has no size, so each label centers itself on its point. */
 .temp-pill {
   position: absolute;
   transform: translate(-50%, -50%);
   padding: 0 5px;
-  border: 1.5px solid #fff;
+  border: 1.5px solid var(--pill-ring, #fff);
   border-radius: 9999px;
   box-shadow: 0 1px 2px rgba(11, 11, 11, 0.4);
   font-size: 12px;
@@ -46,4 +92,9 @@ html, body {
   line-height: 17px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/* A dark ring on a dark map, so the pill reads as a chip rather than a glowing dot. */
+.dark {
+  --pill-ring: #0f172a;
 }

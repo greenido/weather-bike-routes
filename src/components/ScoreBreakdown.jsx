@@ -20,7 +20,7 @@ const FACTORS = [
 export default function ScoreBreakdown({ breakdown }) {
   if (!breakdown) return null
   return (
-    <span className="text-sm text-gray-600 flex gap-x-4 gap-y-1 flex-wrap items-center">
+    <span className="text-sm text-gray-600 dark:text-slate-400 flex gap-x-4 gap-y-1 flex-wrap items-center">
       {FACTORS.map((factor, i) => {
         const Icon = factor.Icon
         return (

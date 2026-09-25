@@ -155,7 +155,7 @@ function App() {
   }
 
   return (
-    <div>
+    <div className="text-gray-900 dark:text-slate-200">
       <TopNav onOpenSettings={openSettings} onOpenHelp={() => setIsHelpOpen(true)} />
       <main className="max-w-6xl mx-auto px-6 py-8">
         <div className="mb-4">
@@ -166,7 +166,7 @@ function App() {
                 type="datetime-local"
                 value={startDateTime}
                 onChange={(e) => setStartDateTime(e.target.value)}
-                className="mt-1 block w-full max-w-xs px-3 py-2 border rounded-md font-normal focus:ring-2 focus:ring-blue-500"
+                className="mt-1 block w-full max-w-xs px-3 py-2 border dark:border-slate-700 rounded-md font-normal bg-white dark:bg-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500"
               />
             </label>
             <label className="block text-sm font-medium" data-tour="speed">
@@ -182,17 +182,17 @@ function App() {
               />
             </label>
           </div>
-          <p className="text-sm text-gray-700 mt-3">Upload GPX routes to compare weather-based comfort scores. Each point gets the forecast for when you'll reach it, based on your start time and average speed (slower on climbs, faster downhill).</p>
-          <p className="text-xs text-gray-600 mt-1">Default start is 24 hours from now. Forecasts reach up to {MAX_DAYS_AHEAD} days ahead.</p>
+          <p className="text-sm text-gray-700 dark:text-slate-300 mt-3">Upload GPX routes to compare weather-based comfort scores. Each point gets the forecast for when you'll reach it, based on your start time and average speed (slower on climbs, faster downhill).</p>
+          <p className="text-xs text-gray-600 dark:text-slate-400 mt-1">Default start is 24 hours from now. Forecasts reach up to {MAX_DAYS_AHEAD} days ahead.</p>
         </div>
 
         <div data-tour="upload">
           <UploadForm onFiles={handleFiles} />
         </div>
 
-        {uploadError && <p className="text-red-600 mt-3" role="alert">{uploadError}</p>}
-        {error && <p className="text-red-600 mt-3" role="alert">{error}</p>}
-        <p className="mt-3 text-gray-700" aria-live="polite">{isLoading ? 'Loading forecasts…' : ''}</p>
+        {uploadError && <p className="text-red-600 dark:text-red-400 mt-3" role="alert">{uploadError}</p>}
+        {error && <p className="text-red-600 dark:text-red-400 mt-3" role="alert">{error}</p>}
+        <p className="mt-3 text-gray-700 dark:text-slate-300" aria-live="polite">{isLoading ? 'Loading forecasts…' : ''}</p>
 
         <div className={isLoading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
           <RouteList routes={rankedRoutes} selectedId={selected?.id} onSelect={setSelectedId} onRemove={removeRoute} isLoading={isLoading} />
@@ -207,7 +207,7 @@ function App() {
         footer={(
           <>
             <button
-              className="px-3 py-1.5 text-sm rounded-md border"
+              className="px-3 py-1.5 text-sm rounded-md border dark:border-slate-700"
               onClick={() => setIsSettingsOpen(false)}
             >Close</button>
             <button
@@ -227,11 +227,11 @@ function App() {
               placeholder="Leave empty to use Open-Meteo"
               value={keyDraft}
               onChange={(e) => setKeyDraft(e.target.value)}
-              className="mt-1 w-full px-3 py-2 border rounded-md font-normal focus:ring-2 focus:ring-blue-500"
+              className="mt-1 w-full px-3 py-2 border dark:border-slate-700 rounded-md font-normal bg-white dark:bg-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500"
             />
           </label>
         </form>
-        <p className="text-xs text-gray-600">With a key, the app uses Visual Crossing instead. The key is stored only in this browser.</p>
+        <p className="text-xs text-gray-600 dark:text-slate-400">With a key, the app uses Visual Crossing instead. The key is stored only in this browser.</p>
       </Modal>
 
       <Modal
@@ -240,7 +240,7 @@ function App() {
         onClose={() => setIsHelpOpen(false)}
         footer={(
           <>
-            <button className="px-3 py-1.5 text-sm rounded-md border" onClick={() => setIsHelpOpen(false)}>Close</button>
+            <button className="px-3 py-1.5 text-sm rounded-md border dark:border-slate-700" onClick={() => setIsHelpOpen(false)}>Close</button>
             <button className="px-3 py-1.5 text-sm rounded-md bg-blue-600 text-white" onClick={takeTour}>Take the tour</button>
           </>
         )}
