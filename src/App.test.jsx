@@ -17,10 +17,18 @@ import { makeRoute } from './test/fixtures'
 
 vi.mock('./services/gpxParser', () => ({ parseGpxFile: vi.fn() }))
 vi.mock('./components/MapPreview.jsx', () => ({ default: () => null }))
+// The real cache needs IndexedDB, which happy-dom has no engine for. The API key half stays real (localStorage).
+vi.mock('./services/cache', async (importOriginal) => ({
+  ...(await importOriginal()),
+  getStoredRoutes: async () => storedRoutes,
+  setStoredRoutes: async (routes) => { storedRoutes = routes },
+}))
+let storedRoutes = []
 
 const ROUTES = {
   'river-loop.gpx': makeRoute({ lat: 45 }),
   'hill-climb.gpx': makeRoute({ lat: 46.5 }),
+  'export-2026-09-12.gpx': { ...makeRoute({ lat: 45, km: 12 }), name: 'Sunday Hills' },
 }
 const HOT_LATITUDE = 46
 
@@ -76,6 +84,7 @@ async function renderWithRoutes(...names) {
 }
 
 beforeEach(() => {
+  storedRoutes = []
   localStorage.clear()
   localStorage.setItem(TOUR_STORAGE_KEY, 'done') // A returning visitor; the tour has its own tests below.
   fetchMock = vi.fn(forecast)
@@ -97,31 +106,77 @@ describe('App', () => {
   it('ranks routes by the weather along them and opens the best one', async () => {
     const user = await renderWithRoutes('hill-climb.gpx', 'river-loop.gpx')
     await screen.findAllByRole('button', { name: /out of 10$/ })
-    expect(cardLabels()).toEqual(['river-loop.gpx, score 10.0 out of 10', 'hill-climb.gpx, score 7.9 out of 10'])
+    expect(cardLabels()).toEqual(['river-loop, score 10.0 out of 10', 'hill-climb, score 7.9 out of 10'])
     // One Open-Meteo request per route.
     expect(fetchMock).toHaveBeenCalledTimes(2)
     expect(fetchMock.mock.calls.every(([url]) => url.startsWith('https://api.open-meteo.com/'))).toBe(true)
 
-    expect(screen.getByRole('heading', { level: 3 }).textContent).toBe('river-loop.gpx')
+    expect(screen.getByRole('heading', { level: 3 }).textContent).toBe('river-loop')
     expect(screen.getByText('Comfortable the whole way.')).toBeTruthy()
 
-    await user.click(screen.getByRole('button', { name: /^hill-climb\.gpx/ }))
-    expect(screen.getByRole('heading', { level: 3 }).textContent).toBe('hill-climb.gpx')
-    expect(screen.getByRole('button', { name: /^hill-climb\.gpx/ }).getAttribute('aria-pressed')).toBe('true')
+    await user.click(screen.getByRole('button', { name: /^hill-climb,/ }))
+    expect(screen.getByRole('heading', { level: 3 }).textContent).toBe('hill-climb')
+    expect(screen.getByRole('button', { name: /^hill-climb,/ }).getAttribute('aria-pressed')).toBe('true')
     expect(screen.getByText(/^Above 25°C from km 0 /)).toBeTruthy()
+  })
+
+  it('names a route by its own <name>, or by the file name without the extension', async () => {
+    await renderWithRoutes('export-2026-09-12.gpx', 'river-loop.gpx')
+    await waitFor(() => expect(cardLabels()).toHaveLength(2))
+    expect(cardLabels().map((label) => label.split(',')[0]).sort()).toEqual(['Sunday Hills', 'river-loop'])
+  })
+
+  it('adds uploaded routes to the ones already there', async () => {
+    const user = await renderWithRoutes('river-loop.gpx')
+    await screen.findByRole('button', { name: /out of 10$/ })
+    await user.upload(fileInput(), gpxFile('hill-climb.gpx'))
+    await waitFor(() => expect(cardLabels()).toHaveLength(2))
+    expect(cardLabels().map((label) => label.split(',')[0]).sort()).toEqual(['hill-climb', 'river-loop'])
+  })
+
+  it('replaces a route uploaded a second time instead of listing it twice', async () => {
+    const user = await renderWithRoutes('river-loop.gpx')
+    await screen.findByRole('button', { name: /out of 10$/ })
+    await user.upload(fileInput(), gpxFile('river-loop.gpx'))
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    expect(cardLabels()).toEqual(['river-loop, score 10.0 out of 10'])
+  })
+
+  it('removes one route and leaves the rest', async () => {
+    const user = await renderWithRoutes('river-loop.gpx', 'hill-climb.gpx')
+    await waitFor(() => expect(cardLabels()).toHaveLength(2))
+    await user.click(screen.getByRole('button', { name: 'Remove river-loop' }))
+    await waitFor(() => expect(cardLabels()).toEqual(['hill-climb, score 7.9 out of 10']))
+    expect(screen.queryByRole('button', { name: /^river-loop,/ })).toBeNull()
+  })
+
+  it('remembers the routes across a reload, and saves what changes', async () => {
+    storedRoutes = [{ ...makeRoute({ lat: 45 }), id: 'saved-1', name: 'saved-ride' }]
+    const user = userEvent.setup()
+    render(<App />)
+    await screen.findByRole('button', { name: 'saved-ride, score 10.0 out of 10' })
+
+    await user.click(screen.getByRole('button', { name: 'Remove saved-ride' }))
+    await waitFor(() => expect(storedRoutes).toEqual([]))
+  })
+
+  it('says a route is loading rather than flashing "No forecast" while it waits', async () => {
+    await renderWithRoutes('river-loop.gpx')
+    expect(await screen.findByRole('button', { name: 'river-loop, loading forecast' })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /no forecast$/ })).toBeNull()
   })
 
   it('names the files it could not read and still scores the rest', async () => {
     await renderWithRoutes('river-loop.gpx', 'broken.gpx')
     expect((await screen.findByRole('alert')).textContent).toBe("Couldn't read broken.gpx (No track or route points found).")
-    expect(await screen.findByRole('button', { name: 'river-loop.gpx, score 10.0 out of 10' })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'river-loop, score 10.0 out of 10' })).toBeTruthy()
   })
 
   it('explains when the forecast cannot be reached', async () => {
     fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
     await renderWithRoutes('river-loop.gpx')
     expect((await screen.findByRole('alert')).textContent).toBe("Couldn't reach Open-Meteo. Check your connection and try again.")
-    expect(screen.getByRole('button', { name: 'river-loop.gpx, no forecast' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'river-loop, no forecast' })).toBeTruthy()
   })
 
   it('refuses start times beyond the forecast range', async () => {
@@ -133,7 +188,7 @@ describe('App', () => {
       target: { value: `${later.getFullYear()}-${pad(later.getMonth() + 1)}-${pad(later.getDate())}T09:00` },
     })
     expect((await screen.findByRole('alert')).textContent).toBe('Forecasts only reach 15 days ahead. Pick an earlier start time.')
-    expect(screen.getByRole('button', { name: 'river-loop.gpx, no forecast' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'river-loop, no forecast' })).toBeTruthy()
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
@@ -186,7 +241,7 @@ describe('App', () => {
     expect(localStorage.getItem('visualCrossingApiKey')).toBe('test-key')
 
     await user.upload(fileInput(), gpxFile('river-loop.gpx'))
-    await screen.findByRole('button', { name: 'river-loop.gpx, score 10.0 out of 10' })
+    await screen.findByRole('button', { name: 'river-loop, score 10.0 out of 10' })
     // The route has three forecast points: one Visual Crossing request each, and none to Open-Meteo.
     expect(fetchMock.mock.calls.map(([url]) => new URL(url).host)).toEqual(Array(3).fill('weather.visualcrossing.com'))
   })

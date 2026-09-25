@@ -3,7 +3,9 @@
   Purpose: Parse GPX files into a normalized route and pick the points where weather is sampled.
   What it does:
   - parseGpxFile(file) / parseGpxText(text): reads <trk> points (or <rte> points when a file has no track) into
-    { points: [{ lat, lon, ele, km }], totalKm, sampleIdx }, where km is the distance from the start.
+    { name, points: [{ lat, lon, ele, km }], totalKm, sampleIdx }, where km is the distance from the start.
+  - `name` is the route's own <name> (Strava, Komoot and Garmin all write one); empty when the file has none,
+    and the caller falls back to the file name.
   - Thins very dense tracks to about MAX_POINTS points so the map, chart, and analysis stay fast.
   - sampleStepKm(totalKm): weather sampling interval — every 5 km, stretched on long routes to cap the request size.
   - sampleByDistance(points, stepKm): indices of the sampled points (first and last are always included).
@@ -21,6 +23,18 @@ export function parseGpxFile(file) {
   return file.text().then(parseGpxText)
 }
 
+// The route's own name, preferred over the file name: "Sunday Hills" beats "afternoon_ride_2026-09-12.gpx".
+// <metadata><name> is deliberately not read: exporters put the collection's name there ("All my rides"), which
+// would label every route in a batch the same. The file name is the better fallback.
+function readName(doc) {
+  for (const parent of ['trk', 'rte']) {
+    const el = doc.getElementsByTagName(parent)[0]?.getElementsByTagName('name')[0]
+    const name = el?.textContent?.trim()
+    if (name) return name
+  }
+  return ''
+}
+
 export function parseGpxText(text) {
   const doc = new DOMParser().parseFromString(text, 'application/xml')
   const trackPoints = readPoints(doc, 'trkpt')
@@ -34,7 +48,7 @@ export function parseGpxText(text) {
     return { lat: p.lat, lon: p.lon, ele: Number.isFinite(p.ele) ? p.ele : null, km }
   })
   const points = all.length > MAX_POINTS ? thinByDistance(all, km / MAX_POINTS) : all
-  return { points, totalKm: km, sampleIdx: sampleByDistance(points, sampleStepKm(km)) }
+  return { name: readName(doc), points, totalKm: km, sampleIdx: sampleByDistance(points, sampleStepKm(km)) }
 }
 
 export function sampleStepKm(totalKm) {

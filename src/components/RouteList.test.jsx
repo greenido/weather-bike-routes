@@ -25,9 +25,19 @@ describe('RouteList', () => {
 
   it('keeps the order it is given and marks only the selected card', () => {
     render(<RouteList routes={[comfy, hot]} selectedId="b" onSelect={() => {}} />)
-    const cards = screen.getAllByRole('button')
+    // Only the cards carry aria-pressed; each row's remove button is a sibling.
+    const cards = screen.getAllByRole('button').filter((button) => button.hasAttribute('aria-pressed'))
     expect(cards.map((card) => card.getAttribute('aria-label').split(',')[0])).toEqual(['river-loop.gpx', 'desert-out-and-back.gpx'])
     expect(cards.map((card) => card.getAttribute('aria-pressed'))).toEqual(['false', 'true'])
+  })
+
+  it('removes a route without selecting it', async () => {
+    const onRemove = vi.fn()
+    const onSelect = vi.fn()
+    render(<RouteList routes={[comfy, hot]} selectedId="a" onSelect={onSelect} onRemove={onRemove} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Remove desert-out-and-back.gpx' }))
+    expect(onRemove).toHaveBeenCalledWith('b')
+    expect(onSelect).not.toHaveBeenCalled()
   })
 
   it('selects a route when its card is clicked', async () => {

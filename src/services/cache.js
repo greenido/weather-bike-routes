@@ -1,10 +1,13 @@
 /*
   File: src/services/cache.js
-  Purpose: Cache hourly forecasts in IndexedDB and keep the optional Visual Crossing API key in localStorage.
+  Purpose: Cache hourly forecasts in IndexedDB, keep the uploaded routes there, and keep the optional
+  Visual Crossing API key in localStorage.
   What it does:
   - getCachedForecast(key) / setCachedForecast(key, data): best-effort cache of normalized hourly series.
     Entries expire after FORECAST_TTL_MS because forecasts change; expired entries are pruned when the DB opens.
   - isFresh(record, now): the expiry rule, exported for tests.
+  - getStoredRoutes() / setStoredRoutes(routes): the parsed routes, so a reload doesn't send you back to an
+    empty upload box. They never expire; they are the rider's own files, not a forecast.
   - getStoredApiKey / setStoredApiKey: the optional Visual Crossing key (empty means "use Open-Meteo").
   Notes:
   - Every cache call swallows storage errors (private mode, blocked storage, tests without IndexedDB).
@@ -12,8 +15,10 @@
 import { openDB } from 'idb'
 
 const DB_NAME = 'weather-bike-routes-db'
-const DB_VERSION = 2
+const DB_VERSION = 3
 const STORE = 'forecasts'
+const ROUTES_STORE = 'routes'
+const ROUTES_KEY = 'uploaded'
 const API_KEY_STORAGE = 'visualCrossingApiKey'
 export const FORECAST_TTL_MS = 2 * 60 * 60 * 1000
 
@@ -29,6 +34,8 @@ function getDb() {
           if (!database.objectStoreNames.contains(STORE)) {
             database.createObjectStore(STORE, { keyPath: 'key' }).createIndex('byCachedAt', 'cachedAt')
           }
+          // v3 keeps the uploaded routes so a reload picks up where you left off.
+          if (!database.objectStoreNames.contains(ROUTES_STORE)) database.createObjectStore(ROUTES_STORE)
         },
       }))
       .then(async (database) => {
@@ -67,6 +74,22 @@ export async function setCachedForecast(key, data) {
     await (await getDb()).put(STORE, { key, data, cachedAt: Date.now() })
   } catch {
     // Caching is best-effort.
+  }
+}
+
+export async function getStoredRoutes() {
+  try {
+    return (await (await getDb()).get(ROUTES_STORE, ROUTES_KEY)) ?? []
+  } catch {
+    return []
+  }
+}
+
+export async function setStoredRoutes(routes) {
+  try {
+    await (await getDb()).put(ROUTES_STORE, routes, ROUTES_KEY)
+  } catch {
+    // Storing routes is best-effort; the app works fine without it.
   }
 }
 
