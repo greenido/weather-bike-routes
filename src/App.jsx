@@ -2,7 +2,8 @@
   File: src/App.jsx
   Purpose: Main application container wiring together data flow and UI.
   What it does:
-  - Manages app state: uploaded routes, start time, average speed, per-route analysis, selection, loading & errors.
+  - Manages app state: uploaded routes, start time, moving speed, time stopped, per-route analysis, selection,
+    loading & errors.
     The start time and speed can arrive from a Weather 4 Bike link (`initialSettings`).
   - Keeps a library of routes: an upload adds to what's there (re-uploading a route replaces it), each route can
     be removed on its own, and the library is stored in IndexedDB so a reload picks up where you left off.
@@ -23,6 +24,7 @@ import TopNav from './components/TopNav.jsx'
 import Modal from './components/Modal.jsx'
 import HelpContent from './components/HelpContent.jsx'
 import GuidedTour from './components/GuidedTour.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { parseGpxFile } from './services/gpxParser'
 import { analyzeRoute } from './services/routeAnalysis'
 import { getStoredApiKey, getStoredRoutes, setStoredApiKey, setStoredRoutes } from './services/cache'
@@ -31,6 +33,9 @@ import { MAX_DAYS_AHEAD } from './services/weatherClient'
 import { MAX_SPEED_KPH, MIN_SPEED_KPH, readInitialSettings } from './services/initialSettings'
 
 const RECALC_DELAY_MS = 350
+const MINUTE_MS = 60 * 1000
+// Long enough for a café stop on an all-day ride; 0 keeps the old "you never stop" estimate.
+const STOP_CHOICES_MIN = [0, 10, 20, 30, 45, 60, 90]
 
 let routeCounter = 0
 // Unique across a session and across reloads, so restored routes can't collide with newly uploaded ones.
@@ -50,6 +55,7 @@ function App() {
   const [selectedId, setSelectedId] = useState(null)
   const [startDateTime, setStartDateTime] = useState(initial.startDateTime)
   const [speedKph, setSpeedKph] = useState(initial.speedKph)
+  const [stopMinutes, setStopMinutes] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [uploadError, setUploadError] = useState('')
@@ -109,7 +115,9 @@ function App() {
     const timer = setTimeout(async () => {
       setError('')
       try {
-        const results = await Promise.all(routes.map((route) => analyzeRoute(route, { startMs, speedKph, apiKey, signal: controller.signal })))
+        const results = await Promise.all(routes.map((route) => analyzeRoute(route, {
+          startMs, speedKph, stoppedMs: stopMinutes * MINUTE_MS, apiKey, signal: controller.signal,
+        })))
         if (controller.signal.aborted) return
         setAnalyses(Object.fromEntries(routes.map((route, i) => [route.id, results[i]])))
         results.forEach(({ score, breakdown, summary }, i) => {
@@ -127,7 +135,7 @@ function App() {
       clearTimeout(timer)
       controller.abort()
     }
-  }, [routes, startMs, speedKph, apiKey])
+  }, [routes, startMs, speedKph, stopMinutes, apiKey])
 
   const rankedRoutes = useMemo(
     () => routes
@@ -181,8 +189,20 @@ function App() {
                 className="mt-3 block w-56 accent-blue-600"
               />
             </label>
+            <label className="block text-sm font-medium">
+              Time stopped
+              <select
+                value={stopMinutes}
+                onChange={(e) => setStopMinutes(Number(e.target.value))}
+                className="mt-1 block px-3 py-2 border dark:border-slate-700 rounded-md font-normal bg-white dark:bg-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-500"
+              >
+                {STOP_CHOICES_MIN.map((minutes) => (
+                  <option key={minutes} value={minutes}>{minutes === 0 ? 'No stops' : `${minutes} min`}</option>
+                ))}
+              </select>
+            </label>
           </div>
-          <p className="text-sm text-gray-700 dark:text-slate-300 mt-3">Upload GPX routes to compare weather-based comfort scores. Each point gets the forecast for when you'll reach it, based on your start time and average speed (slower on climbs, faster downhill).</p>
+          <p className="text-sm text-gray-700 dark:text-slate-300 mt-3">Upload GPX routes to compare weather-based comfort scores. Each point gets the forecast for when you'll reach it, based on your start time and your speed while moving (slower on climbs, faster downhill), plus any time you expect to spend stopped.</p>
           <p className="text-xs text-gray-600 dark:text-slate-400 mt-1">Default start is 24 hours from now. Forecasts reach up to {MAX_DAYS_AHEAD} days ahead.</p>
         </div>
 
@@ -196,7 +216,11 @@ function App() {
 
         <div className={isLoading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
           <RouteList routes={rankedRoutes} selectedId={selected?.id} onSelect={setSelectedId} onRemove={removeRoute} isLoading={isLoading} />
-          {selected?.analysis && <RouteDetail key={selected.id} route={selected} />}
+          {selected?.analysis && (
+            <ErrorBoundary label="route detail" resetKey={selected.id}>
+              <RouteDetail key={selected.id} route={selected} />
+            </ErrorBoundary>
+          )}
         </div>
       </main>
 
