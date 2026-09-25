@@ -33,7 +33,7 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - `src/components/UploadForm.jsx`: GPX input (drag/drop and button)
 - `src/components/RouteList.jsx`: Route cards (best score first) with sketch, score, breakdown, and ride summary
 - `src/components/RouteThumbnail.jsx`: Small SVG sketch of a route, colored by temperature
-- `src/components/RouteDetail.jsx`: The selected route: headline stats, ride tips, legend, map, and profile
+- `src/components/RouteDetail.jsx`: The selected route: headline stats, ride tips, legend, map, and profile. The map is loaded on demand, so Leaflet only downloads once a route is shown
 - `src/components/MapPreview.jsx`: Leaflet map with the temperature-colored route, temperature labels, arrows, callouts, and the hover readout
 - `src/components/RouteProfile.jsx`: Temperature and elevation chart with crosshair, keyboard support, and table view
 - `src/components/ScoreBreakdown.jsx`: Penalty breakdown with icons
@@ -47,6 +47,7 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - `src/services/scoringEngine.js`: Turns a ride summary into a score and its breakdown
 - `src/services/temperatureScale.js`: The temperature color scale (a continuous ramp) shared by the map, chart, sketch, and legend
 - `src/services/mapLabels.js`: Where the temperature labels go along the route at each zoom, so they never pile up
+- `src/services/pointIndex.js`: A grid of the route's projected points, so the map finds the point under the pointer without walking the whole route
 - `src/services/geo.js`, `src/services/format.js`: Distance/bearing math and display formatting
 - `src/services/cache.js`: IndexedDB forecast cache and API key storage
 - `src/services/initialSettings.js`: The start time and speed the app opens with, from the URL or Weather 4 Bike
@@ -105,6 +106,7 @@ Without `speed`, the app uses the speed you set in Weather 4 Bike's settings. Bo
 ## Notes & limits
 
 - Very dense GPX tracks are thinned to about 2,000 points so the map, chart, and analysis stay fast; distances are measured on the full track first.
+- Leaflet and its stylesheet load only when a route is first shown: about a third of the app's JavaScript and half its CSS, none of it needed before a GPX file is uploaded. `react-joyride` is split out the same way.
 - Map tiles come from OpenStreetMap (shown in grayscale so the temperature colors stand out) and follow the [OSM tile usage policy](https://operations.osmfoundation.org/policies/tiles/); switch to a tile provider for heavy traffic.
 - Open-Meteo's free API is for non-commercial use; see [its terms](https://open-meteo.com/en/terms) before using it commercially.
 - This is a client-only app; the optional API key is stored locally and used directly from the browser.

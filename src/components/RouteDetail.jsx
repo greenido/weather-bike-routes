@@ -8,14 +8,18 @@
   - Temperature legend, the colored route map, and the distance profile. Pointing at either the map or the
     chart highlights the same spot in both (shared `hoverIndex`).
   - `data-tour` attributes mark what the guided tour points at; Help reuses `TemperatureLegend`.
+  Notes:
+  - The map is loaded only when a route is first shown. Leaflet and its stylesheet are about a third of the app's
+    JavaScript and half its CSS, and none of it is needed until someone has uploaded a GPX file.
 */
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Shirt } from 'lucide-react'
-import MapPreview from './MapPreview.jsx'
 import RouteProfile from './RouteProfile.jsx'
 import { forecastLeadDays, rideAdvice, UNCERTAIN_AFTER_DAYS } from '../services/routeAnalysis'
 import { COMFORT_MAX_C, COMFORT_MIN_C, TEMP_STOPS } from '../services/temperatureScale'
 import { formatTime } from '../services/format'
+
+const MapPreview = lazy(() => import('./MapPreview.jsx'))
 
 const LEGEND_MIN_C = TEMP_STOPS[0][0]
 const LEGEND_MAX_C = TEMP_STOPS.at(-1)[0]
@@ -65,12 +69,23 @@ export default function RouteDetail({ route }) {
       </div>
       {/* `isolate` keeps Leaflet's layers (z-index 400–1000) under the sticky top bar and the tour. */}
       <div className="h-96 rounded-xl overflow-hidden border isolate" data-tour="map">
-        <MapPreview timeline={timeline} summary={summary} hoverIndex={hoverIndex} onHover={setHoverIndex} />
+        <Suspense fallback={<MapPlaceholder />}>
+          <MapPreview timeline={timeline} summary={summary} hoverIndex={hoverIndex} onHover={setHoverIndex} />
+        </Suspense>
       </div>
       <div className="mt-4 rounded-xl border bg-white p-3" data-tour="profile">
         <RouteProfile timeline={timeline} sampleIdx={route.sampleIdx} hoverIndex={hoverIndex} onHover={setHoverIndex} />
       </div>
     </section>
+  )
+}
+
+// Holds the map's space while its chunk downloads, so the page doesn't jump when it arrives.
+function MapPlaceholder() {
+  return (
+    <div className="h-full w-full grid place-items-center bg-gray-100 text-sm text-gray-500" aria-live="polite">
+      Loading map…
+    </div>
   )
 }
 

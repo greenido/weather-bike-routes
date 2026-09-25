@@ -8,19 +8,21 @@
   - Labels start/finish, the coldest, and the warmest point, and puts temperature labels along the route. Which of
     those fit without crowding is worked out again at every zoom (`mapLabels`), so zooming in shows more.
   - A marker follows the hovered point (`hoverIndex`) and shows its temperature, time, and distance.
-  - Reports the route point nearest the pointer through `onHover(index | null)`.
+  - Reports the route point nearest the pointer through `onHover(index | null)`, looked up through a grid index
+    of the route's projected points rather than by walking all of them on every mouse move.
   Notes:
   - The initial view comes from MapContainer `bounds`; the parent remounts this component per route.
   - Positions, path options, and icons are memoized: react-leaflet re-applies any prop whose reference changes, and
     the map re-renders on every hover.
 */
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { bearingDeg, haversineKm } from '../services/geo'
 import { colorRuns, temperatureColor, temperatureTextColor } from '../services/temperatureScale'
 import { labelMarks, placeLabels } from '../services/mapLabels'
+import { buildPointIndex, nearestPointWithin } from '../services/pointIndex'
 import { formatDegrees, formatTime } from '../services/format'
 
 const TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
@@ -126,22 +128,22 @@ function TemperatureLabels({ timeline, labels, arrows }) {
 }
 
 function HoverTracker({ positions, onHover }) {
-  const map = useMapEvents({
-    mousemove(e) {
-      let best = null
-      let bestPx = HOVER_RADIUS_PX
-      positions.forEach((position, i) => {
-        const px = e.containerPoint.distanceTo(map.latLngToContainerPoint(position))
-        if (px < bestPx) {
-          bestPx = px
-          best = i
-        }
-      })
-      onHover(best)
-    },
-    mouseout() {
-      onHover(null)
-    },
+  const map = useMap()
+  const [zoom, setZoom] = useState(() => map.getZoom())
+  // Projected at a fixed zoom, so the index survives panning and is rebuilt only when the zoom changes.
+  const index = useMemo(
+    () => buildPointIndex(positions.map((position) => map.project(position, zoom))),
+    [map, positions, zoom],
+  )
+  const report = useCallback(
+    (latlng) => onHover(nearestPointWithin(index, map.project(latlng, zoom), HOVER_RADIUS_PX)),
+    [index, map, zoom, onHover],
+  )
+
+  useMapEvents({
+    zoomend: () => setZoom(map.getZoom()),
+    mousemove: (e) => report(e.latlng),
+    mouseout: () => onHover(null),
   })
   return null
 }
