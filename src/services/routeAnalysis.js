@@ -8,6 +8,7 @@
   - summarizeRide(timeline): distance-weighted wind (with the headwind part computed per road segment),
     feels-like temperatures, rain, visibility, extremes, and comfort share — the inputs for scoring and the UI.
   - rideAdvice(timeline, summary, formatTime): short "what to wear or bring" hints.
+  - forecastLeadDays(startMs): how far ahead the ride is, so the UI can say when a forecast is still soft.
   - analyzeRoute(route, options): the whole pipeline for one route (forecast fetch → timeline → score).
 */
 import { bearingDeg } from './geo'
@@ -18,9 +19,12 @@ import { conditionsAt, fetchForecasts } from './weatherClient'
 const LAPSE_RATE_C_PER_M = 0.0065
 const LEG_KM = 0.25
 const HOUR_MS = 60 * 60 * 1000
+const DAY_MS = 24 * HOUR_MS
 const HOT_C = 25
 const RAINY_CHANCE = 30
 const SCORE_SAMPLES = 100
+// Past about here a forecast is a trend, not a plan: the numbers still move a lot before the ride.
+export const UNCERTAIN_AFTER_DAYS = 5
 
 const clamp = (value, lo, hi) => Math.min(hi, Math.max(lo, value))
 const lerp = (a, b, w) => a + (b - a) * w
@@ -119,8 +123,12 @@ export function summarizeRide(timeline) {
     endMs: timeline.at(-1).eta,
     avgWindKph: windSum / km,
     avgHeadwindKph: headwindSum / km,
-    maxGustKph,
+    // Scoring reads the resampled arrays, so every km counts the same and one bad point can't sink a ride.
+    // The maxima are what the cards and the tips quote, where the worst moment is the useful number.
     feelsLikeC: resampleByDistance(timeline, 'feelsLikeC', SCORE_SAMPLES),
+    gustKph: resampleByDistance(timeline, 'gustKph', SCORE_SAMPLES),
+    rainChance: resampleByDistance(timeline, 'rainChance', SCORE_SAMPLES),
+    maxGustKph,
     maxRainChance: timeline[rainIndex].rainChance,
     rainIndex,
     avgVisibilityKm: distanceKm ? visibilitySum / km : timeline[0].visibilityKm,
@@ -163,6 +171,11 @@ export function rideAdvice(timeline, summary, formatTime) {
     tips.push(`${Math.round(summary.maxRainChance)}% chance of rain around ${at(summary.rainIndex)}. Pack a rain jacket.`)
   }
   return tips.length ? tips : ['Comfortable the whole way.']
+}
+
+// Rounded, so "in 5 days" reads the same whether you set off in the morning or the evening.
+export function forecastLeadDays(startMs, now = Date.now()) {
+  return Math.max(0, Math.round((startMs - now) / DAY_MS))
 }
 
 export async function analyzeRoute(route, { startMs, speedKph, apiKey, signal, getForecasts = fetchForecasts }) {

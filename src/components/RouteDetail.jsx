@@ -4,6 +4,7 @@
   What it does:
   - Summary cards (temperature range, coldest and warmest point, share of the ride in the comfort band)
     and short "what to wear or bring" advice.
+  - A note when the ride is far enough out that the forecast will still move before you set off.
   - Temperature legend, the colored route map, and the distance profile. Pointing at either the map or the
     chart highlights the same spot in both (shared `hoverIndex`).
   - `data-tour` attributes mark what the guided tour points at; Help reuses `TemperatureLegend`.
@@ -12,7 +13,7 @@ import { useState } from 'react'
 import { Shirt } from 'lucide-react'
 import MapPreview from './MapPreview.jsx'
 import RouteProfile from './RouteProfile.jsx'
-import { rideAdvice } from '../services/routeAnalysis'
+import { forecastLeadDays, rideAdvice, UNCERTAIN_AFTER_DAYS } from '../services/routeAnalysis'
 import { COMFORT_MAX_C, COMFORT_MIN_C, TEMP_STOPS } from '../services/temperatureScale'
 import { formatTime } from '../services/format'
 
@@ -28,6 +29,7 @@ export default function RouteDetail({ route }) {
   const coldest = timeline[summary.coldestIndex]
   const warmest = timeline[summary.warmestIndex]
   const where = (p) => `km ${Math.round(p.km)} · ${formatTime(p.eta)}`
+  const leadDays = forecastLeadDays(summary.startMs)
 
   return (
     <section className="mt-8" aria-labelledby="route-detail-title">
@@ -35,6 +37,11 @@ export default function RouteDetail({ route }) {
       <p className="text-sm text-gray-600 mt-1">
         {Math.round(route.totalKm)} km · start {formatTime(summary.startMs)} · back around {formatTime(summary.endMs)}
       </p>
+      {leadDays >= UNCERTAIN_AFTER_DAYS && (
+        <p className="text-sm text-gray-500 mt-1">
+          This ride is {leadDays} days out, so the forecast — and the score — will still move before you set off.
+        </p>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
         <Stat label="Temperature range" value={`${Math.round(coldest.tempC)}–${Math.round(warmest.tempC)}°C`} detail={`over ${Math.round(route.totalKm)} km`} />

@@ -37,11 +37,12 @@ export default function HelpContent() {
       <Section title="How the score works">
         <p>Each route starts at 10 and loses points for:</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li><b>Wind</b>: Average wind over 15 km/h costs 1.5 points (2.5 over 25, 3 over 35, 4 over 45). If it's mostly in your face, that grows up to ×1.8. A steady tailwind gives up to +1.5. Gusts over 40 km/h cost 1 more point, over 55 km/h 2 more.</li>
-          <li><b>Temperature</b>: Uses the feels-like temperature, which already accounts for humidity and wind chill. 15–22°C is ideal. Below 15 costs 1 point (2 under 10, 3 under 5); above 22 costs 1 (2 over 30, 3 over 35). Every km of the ride counts. Feeling above 40°C on average is a no‑go.</li>
-          <li><b>Rain</b>: The highest chance of rain during the ride. 15% or more costs 1 point, 30% costs 2, 50% costs 3, 70% costs 4.</li>
-          <li><b>Visibility</b>: Below 10 km costs 1 point, below 5 km 2 points, below 2 km 3 points.</li>
+          <li><b>Wind</b>: Average wind costs 1.5 points at 20 km/h, 2.5 at 30, 3 at 40 and 4 at 50, and nothing under 10. If it’s mostly in your face, that grows up to ×1.8. A steady tailwind gives up to +1.5. Gusts cost 1 point at 47 km/h and 2 at 65.</li>
+          <li><b>Temperature</b>: Uses the feels-like temperature, which already accounts for humidity and wind chill. 15–22°C is free. Colder costs 1 point at 12.5°C, 2 at 7.5 and 3 at 2.5; warmer costs 1 at 26°C, 2 at 32.5 and 3 at 37.5. Feeling above 40°C on average is a no‑go.</li>
+          <li><b>Rain</b>: The chance of rain costs 1 point at 22%, 2 at 40%, 3 at 60% and 4 at 85%.</li>
+          <li><b>Visibility</b>: 1 point at 7.5 km, 2 at 3.5 km and 3 at 1 km.</li>
         </ul>
+        <p>Every factor is measured over the whole ride, so each km counts the same and a shower over one hill costs far less than rain the whole way. The numbers above are points on a straight line, not steps, so the score drifts as you change the start time instead of jumping.</p>
         <p>The score never goes below 1. Headwind is worked out for each stretch of road, so loops and out-and-back rides are judged fairly.</p>
       </Section>
 

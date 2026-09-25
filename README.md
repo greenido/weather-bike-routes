@@ -84,10 +84,12 @@ npm run dev
 
 Penalties are subtracted from 10, and the result is clamped to 1–10.
 
-- Wind: stronger average winds cost more. A net headwind (worked out for each stretch of road, so loops and out-and-back rides even out) makes it worse; a net tailwind gives up to +1.5. Gusts over 40 km/h cost extra.
-- Temperature: feels-like temperature at every point of the ride; 15–22°C is ideal, colder or hotter lowers the score, and an average above 40°C sets the score to 1. Feels-like already accounts for humidity and wind chill, so humidity is no longer scored separately.
-- Rain: the highest chance of rain during the ride, from 15% up.
-- Visibility: penalties below 10 km, harsher below 5 km and 2 km.
+Every factor is measured over the whole ride, and every penalty is a straight line between its documented numbers, so a score drifts as you change the start time or speed instead of jumping a whole point at a threshold.
+
+- Wind: stronger average winds cost more. A net headwind (worked out for each stretch of road, so loops and out-and-back rides even out) makes it worse; a net tailwind gives up to +1.5. Gusts cost extra, averaged along the ride.
+- Temperature: feels-like temperature at every point of the ride; 15–22°C is free, colder or hotter lowers the score, and an average above 40°C sets the score to 1. Feels-like already accounts for humidity and wind chill, so humidity is no longer scored separately.
+- Rain: the chance of rain at every point of the ride, so a shower over one hill costs far less than rain the whole way. The cards and the tips still quote the wettest moment.
+- Visibility: the average along the ride; the penalty grows as you can see less far.
 
 See the header comment in `src/services/scoringEngine.js` and the Help dialog (`src/components/HelpContent.jsx`) for the exact numbers. Keep the two in sync.
 
