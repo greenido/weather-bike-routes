@@ -8,7 +8,8 @@
     be removed on its own, and the library is stored in IndexedDB so a reload picks up where you left off.
   - Parses GPX uploads, then analyzes every route (forecast at each point for the time you get there → score).
     Changing the start time, speed, or weather provider re-runs the analysis after a short pause, and a newer
-    run cancels the one in flight, so a slow, stale response can never overwrite a fresh one.
+    run cancels the one in flight, so a slow, stale response can never overwrite a fresh one. When Visual
+    Crossing's daily allowance runs out, the forecasts come from Open-Meteo and a notice says so.
   - Presents the UI: ride settings, file upload, ranked route list, and the selected route's temperature detail.
   - Opens modals for Settings (optional Visual Crossing key) and Help, which can replay the guided tour that
     first-time users see (`GuidedTour`).
@@ -52,6 +53,7 @@ function App() {
   const [speedKph, setSpeedKph] = useState(initial.speedKph)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [uploadError, setUploadError] = useState('')
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isHelpOpen, setIsHelpOpen] = useState(false)
@@ -108,15 +110,19 @@ function App() {
     const controller = new AbortController()
     const timer = setTimeout(async () => {
       setError('')
+      let fallbackNotice = ''
+      const onFallback = (message) => { fallbackNotice = message }
       try {
-        const results = await Promise.all(routes.map((route) => analyzeRoute(route, { startMs, speedKph, apiKey, signal: controller.signal })))
+        const results = await Promise.all(routes.map((route) => analyzeRoute(route, { startMs, speedKph, apiKey, signal: controller.signal, onFallback })))
         if (controller.signal.aborted) return
+        setNotice(fallbackNotice)
         setAnalyses(Object.fromEntries(routes.map((route, i) => [route.id, results[i]])))
         results.forEach(({ score, breakdown, summary }, i) => {
           logEvent({ type: 'route:weather', route: routes[i].name, summary: { score, breakdown, avgWindKph: summary.avgWindKph, avgHeadwindKph: summary.avgHeadwindKph } })
         })
       } catch (e) {
         if (controller.signal.aborted) return
+        setNotice('')
         setAnalyses({})
         setError(e?.message || 'Could not load the forecast.')
       } finally {
@@ -192,6 +198,7 @@ function App() {
 
         {uploadError && <p className="text-red-600 dark:text-red-400 mt-3" role="alert">{uploadError}</p>}
         {error && <p className="text-red-600 dark:text-red-400 mt-3" role="alert">{error}</p>}
+        {notice && <p className="text-amber-700 dark:text-amber-300 mt-3" role="status">{notice}</p>}
         <p className="mt-3 text-gray-700 dark:text-slate-300" aria-live="polite">{isLoading ? 'Loading forecasts…' : ''}</p>
 
         <div className={isLoading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>

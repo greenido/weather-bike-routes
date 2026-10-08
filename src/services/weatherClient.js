@@ -2,10 +2,16 @@
   File: src/services/weatherClient.js
   Purpose: Fetch hourly forecasts for the points sampled along a route, from Open-Meteo (default) or Visual Crossing.
   What it does:
-  - fetchForecasts(points, startMs, endMs, { apiKey, signal }): one normalized hourly series per point, covering the
+  - fetchForecasts(points, startMs, endMs, { apiKey, signal, onFallback }): one normalized hourly series per point, covering the
     ride. Open-Meteo needs no key and answers for all points in one request. When a Visual Crossing API key is set,
     Visual Crossing is used instead: one request per point, one at a time across the whole app, because plans cap
-    how many requests an account can run at once. A 429 from it is retried twice, 2 and 5 seconds apart.
+    how many requests an account can run at once. A "too many at once" 429 is retried twice, 2 and 5 seconds apart.
+  - Visual Crossing bills by "records" against a daily limit (1,000 a day on the free plan). Its plain 15-day
+    forecast costs one record per location, but a date range that reaches into the past is billed like history,
+    one record per hour. So each point asks for the whole forecast with no dates (cached by location alone, so a
+    new start time reuses it), and points are snapped to ~1 km so nearby points share a request. Once the daily
+    limit is hit, Visual Crossing is left alone for an hour instead of each request being refused in turn, and
+    the forecast comes from Open-Meteo meanwhile; `onFallback(notice)` tells the caller so it can say so.
   - conditionsAt(series, ms): conditions at an exact moment, interpolated between the surrounding hours
     (wind is interpolated as a vector so 350° and 10° blend to 0°, not 180°).
   - Series are cached in IndexedDB for a couple of hours (see cache.js); requests can be cancelled with an AbortSignal.
@@ -23,22 +29,44 @@ const OPEN_METEO_FIELDS = [
   'temperature_2m', 'apparent_temperature', 'precipitation_probability', 'precipitation',
   'wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m', 'visibility',
 ]
+const VISUAL_CROSSING_ELEMENTS = [
+  'datetimeEpoch', 'temp', 'feelslike', 'precipprob', 'precip', 'windspeed', 'winddir', 'windgust', 'visibility',
+]
 export const MAX_DAYS_AHEAD = 15
 const VISUAL_CROSSING_CONCURRENCY = 1
 // Visual Crossing allows retrying a 429 once other requests finish, but not aggressive retry loops.
 const VISUAL_CROSSING_RETRY_DELAYS_MS = [2000, 5000]
+// A spent daily allowance doesn't come back in seconds, so stop asking for a while.
+const QUOTA_PAUSE_MS = 60 * 60 * 1000
 const HOUR_MS = 60 * 60 * 1000
 const DAY_MS = 24 * HOUR_MS
 const CLEAR_VISIBILITY_KM = 20
 
 const round3 = (value) => Math.round(value * 1000) / 1000
+// ~1 km: finer than the forecast models' grid, and coarse enough for nearby points (a shared start) to share a request.
+const round2 = (value) => Math.round(value * 100) / 100
 const utcDate = (ms) => new Date(ms).toISOString().slice(0, 10)
 const toRad = (deg) => (deg * Math.PI) / 180
 
 // Every route loads at the same time, so all Visual Crossing requests share one queue.
 const visualCrossingQueue = createQueue(VISUAL_CROSSING_CONCURRENCY)
+let visualCrossingPausedUntil = 0
+let visualCrossingQuotaReason = ''
 
-export async function fetchForecasts(points, startMs, endMs, { apiKey = '', signal } = {}) {
+export async function fetchForecasts(points, startMs, endMs, { apiKey = '', signal, onFallback } = {}) {
+  if (!apiKey) return fetchFrom(points, startMs, endMs, '', signal)
+  try {
+    return await fetchFrom(points, startMs, endMs, apiKey, signal)
+  } catch (err) {
+    if (!err?.dailyLimit) throw err
+    logEvent({ type: 'weather:fallback', from: 'Visual Crossing', to: 'Open-Meteo', reason: err.reason })
+    const series = await fetchFrom(points, startMs, endMs, '', signal)
+    onFallback?.(fallbackNotice(err.reason))
+    return series
+  }
+}
+
+async function fetchFrom(points, startMs, endMs, apiKey, signal) {
   const provider = apiKey ? 'Visual Crossing' : 'Open-Meteo'
   const startDate = utcDate(startMs - HOUR_MS)
   const endDate = utcDate(endMs + HOUR_MS)
@@ -46,8 +74,10 @@ export async function fetchForecasts(points, startMs, endMs, { apiKey = '', sign
     throw new Error(`Forecasts only reach ${MAX_DAYS_AHEAD} days ahead. Pick an earlier start time.`)
   }
 
-  const coords = points.map((p) => ({ lat: round3(p.lat), lon: round3(p.lon) }))
-  const keys = coords.map((c) => `${provider}:${c.lat},${c.lon}:${startDate}:${endDate}`)
+  const round = apiKey ? round2 : round3
+  const coords = points.map((p) => ({ lat: round(p.lat), lon: round(p.lon) }))
+  // Visual Crossing series hold the whole 15-day forecast, so they're keyed by location alone.
+  const keys = coords.map((c) => (apiKey ? `${provider}:${c.lat},${c.lon}` : `${provider}:${c.lat},${c.lon}:${startDate}:${endDate}`))
   const cached = await Promise.all(keys.map(getCachedForecast))
 
   const pending = new Map()
@@ -58,19 +88,24 @@ export async function fetchForecasts(points, startMs, endMs, { apiKey = '', sign
   if (pending.size) {
     const entries = [...pending]
     const results = apiKey
-      ? await fetchVisualCrossingPoints(entries, apiKey, startDate, endDate, signal)
+      ? await fetchVisualCrossingPoints(entries, apiKey, signal)
       : await fetchOpenMeteo(entries.map(([, coord]) => coord), startDate, endDate, signal)
     entries.forEach(([key], n) => {
       fetched.set(key, results[n])
       if (!apiKey) setCachedForecast(key, results[n])
     })
   }
-  return cached.map((series, i) => series || fetched.get(keys[i]))
+  const series = cached.map((s, i) => s || fetched.get(keys[i]))
+  // Visual Crossing's undated forecast runs 15 days from local midnight today, which can end before our horizon check.
+  if (apiKey && series.some((s) => s.times.length && s.times.at(-1) < endMs - HOUR_MS)) {
+    throw new Error("The Visual Crossing forecast doesn't reach the end of this ride yet. Pick an earlier start time.")
+  }
+  return series
 }
 
 // Queues one request per point and caches each result as it arrives. If one point fails, the route fails, so the
 // rest of its queued requests are dropped instead of spent.
-async function fetchVisualCrossingPoints(entries, apiKey, startDate, endDate, signal) {
+async function fetchVisualCrossingPoints(entries, apiKey, signal) {
   const batch = new AbortController()
   const forwardAbort = () => batch.abort(signal.reason)
   if (signal?.aborted) forwardAbort()
@@ -81,9 +116,18 @@ async function fetchVisualCrossingPoints(entries, apiKey, startDate, endDate, si
       // Another route may have fetched this point while the request waited in the queue (a shared start, say).
       const cached = await getCachedForecast(key)
       if (cached) return cached
-      const series = await fetchVisualCrossing(apiKey, coord, startDate, endDate, batch.signal)
-      await setCachedForecast(key, series)
-      return series
+      if (Date.now() < visualCrossingPausedUntil) throw dailyLimitError(visualCrossingQuotaReason)
+      try {
+        const series = await fetchVisualCrossing(apiKey, coord, batch.signal)
+        await setCachedForecast(key, series)
+        return series
+      } catch (err) {
+        if (err?.dailyLimit) {
+          visualCrossingPausedUntil = Date.now() + QUOTA_PAUSE_MS
+          visualCrossingQuotaReason = err.reason
+        }
+        throw err
+      }
     })))
   } catch (err) {
     batch.abort()
@@ -109,12 +153,17 @@ async function fetchOpenMeteo(coords, startDate, endDate, signal) {
   return locations.map(fromOpenMeteo)
 }
 
-async function fetchVisualCrossing(apiKey, coord, startDate, endDate, signal) {
-  const from = Date.parse(`${startDate}T00:00:00Z`) / 1000
-  const to = Date.parse(`${endDate}T23:59:59Z`) / 1000
-  const params = new URLSearchParams({ unitGroup: 'metric', include: 'hours', key: apiKey })
-  const url = `${VISUAL_CROSSING_URL}/${coord.lat},${coord.lon}/${from}/${to}?${params}`
+// No dates: the plain 15-day forecast is one record. Explicit dates that include past hours are billed per hour.
+async function fetchVisualCrossing(apiKey, coord, signal) {
+  const params = new URLSearchParams({
+    unitGroup: 'metric',
+    include: 'hours',
+    elements: VISUAL_CROSSING_ELEMENTS.join(','),
+    key: apiKey,
+  })
+  const url = `${VISUAL_CROSSING_URL}/${coord.lat},${coord.lon}?${params}`
   const json = await requestJson(url, 'Visual Crossing', signal, VISUAL_CROSSING_RETRY_DELAYS_MS)
+  logEvent({ type: 'weather:cost', provider: 'Visual Crossing', queryCost: json.queryCost })
   return fromVisualCrossing(json)
 }
 
@@ -133,6 +182,8 @@ async function requestJson(url, provider, signal, retryDelaysMs = []) {
     if (res.ok) return res.json()
     const reason = await errorReason(res)
     if (res.status !== 429) throw new Error(`${provider} request failed (${res.status})${reason ? `: ${reason}` : ''}`)
+    // A spent daily allowance won't recover with a retry.
+    if (provider === 'Visual Crossing' && /daily/i.test(reason)) throw dailyLimitError(reason)
     if (attempt >= retryDelaysMs.length) throw new Error(tooManyRequestsMessage(provider, reason))
     await wait(retryDelaysMs[attempt], signal)
   }
@@ -155,6 +206,16 @@ function tooManyRequestsMessage(provider, reason) {
   if (provider === 'Visual Crossing') parts.push('Wait a minute and try again, or clear the key in Settings to use Open-Meteo.')
   else if (!detail) parts.push('Wait a minute and try again.') // Open-Meteo's reason already says when to retry.
   return parts.join(' ')
+}
+
+function dailyLimitError(reason) {
+  return Object.assign(new Error(`Visual Crossing daily limit: ${reason}`), { dailyLimit: true, reason })
+}
+
+function fallbackNotice(reason) {
+  const detail = reason.trim() ? ` (${reason.trim().replace(/\.$/, '')})` : ''
+  const retryAt = new Date(visualCrossingPausedUntil).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+  return `Visual Crossing's daily allowance for this API key is used up${detail}, so these forecasts come from Open-Meteo. The app asks Visual Crossing again after ${retryAt}.`
 }
 
 function wait(ms, signal) {

@@ -58,9 +58,10 @@ function openMeteoForecast(url) {
 }
 
 function visualCrossingForecast(url) {
-  const segments = new URL(url).pathname.split('/')
-  const lat = Number(segments.at(-3).split(',')[0])
-  const [from, to] = segments.slice(-2).map(Number)
+  // No dates in the request: like the real API, answer with 15 days of hours from midnight today.
+  const lat = Number(new URL(url).pathname.split('/').at(-1).split(',')[0])
+  const from = Date.parse(`${new Date().toISOString().slice(0, 10)}T00:00:00Z`) / 1000
+  const to = from + 15 * 24 * 3600 - 3600
   const hours = []
   for (let t = from; t <= to; t += 3600) {
     hours.push({ datetimeEpoch: t, temp: tempAt(lat), feelslike: tempAt(lat), precipprob: 0, precip: 0, windspeed: 5, winddir: 0, windgust: 10, visibility: 20 })
@@ -244,6 +245,19 @@ describe('App', () => {
     await screen.findByRole('button', { name: 'river-loop, score 10.0 out of 10' })
     // The route has three forecast points: one Visual Crossing request each, and none to Open-Meteo.
     expect(fetchMock.mock.calls.map(([url]) => new URL(url).host)).toEqual(Array(3).fill('weather.visualcrossing.com'))
+  })
+
+  it("switches to Open-Meteo, and says so, when Visual Crossing's daily allowance is spent", async () => {
+    localStorage.setItem('visualCrossingApiKey', 'test-key')
+    fetchMock.mockImplementation(async (url) => (url.includes('visualcrossing.com')
+      ? { ok: false, status: 429, text: async () => 'Maximum daily cost exceeded' }
+      : forecast(url)))
+    await renderWithRoutes('river-loop.gpx')
+    await screen.findByRole('button', { name: 'river-loop, score 10.0 out of 10' })
+    expect(screen.getByRole('status').textContent).toMatch(/^Visual Crossing's daily allowance for this API key is used up \(Maximum daily cost exceeded\), so these forecasts come from Open-Meteo\./)
+    expect(screen.queryByRole('alert')).toBeNull()
+    // One refused request, no retries, then the whole route from Open-Meteo.
+    expect(fetchMock.mock.calls.map(([url]) => new URL(url).host)).toEqual(['weather.visualcrossing.com', 'api.open-meteo.com'])
   })
 
   it('explains the app in Help and replays the tour from there', async () => {
