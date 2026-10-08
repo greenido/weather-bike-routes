@@ -10,7 +10,7 @@
   - Parses GPX uploads, then analyzes every route (forecast at each point for the time you get there → score).
     Changing the start time, speed, or weather provider re-runs the analysis after a short pause, and a newer
     run cancels the one in flight, so a slow, stale response can never overwrite a fresh one. When Visual
-    Crossing's daily allowance runs out, the forecasts come from Open-Meteo and a notice says so.
+    Crossing's daily allowance runs out, the forecasts come from Open-Meteo and a toast says so, once.
   - Presents the UI: ride settings, file upload, ranked route list, and the selected route's temperature detail.
   - Opens modals for Settings (optional Visual Crossing key) and Help, which can replay the guided tour that
     first-time users see (`GuidedTour`).
@@ -25,6 +25,7 @@ import TopNav from './components/TopNav.jsx'
 import Modal from './components/Modal.jsx'
 import HelpContent from './components/HelpContent.jsx'
 import GuidedTour from './components/GuidedTour.jsx'
+import Toast from './components/Toast.jsx'
 import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { parseGpxFile } from './services/gpxParser'
 import { analyzeRoute } from './services/routeAnalysis'
@@ -218,7 +219,6 @@ function App() {
 
         {uploadError && <p className="text-red-600 dark:text-red-400 mt-3" role="alert">{uploadError}</p>}
         {error && <p className="text-red-600 dark:text-red-400 mt-3" role="alert">{error}</p>}
-        {notice && <p className="text-amber-700 dark:text-amber-300 mt-3" role="status">{notice}</p>}
         <p className="mt-3 text-gray-700 dark:text-slate-300" aria-live="polite">{isLoading ? 'Loading forecasts…' : ''}</p>
 
         <div className={isLoading ? 'opacity-60 transition-opacity' : 'transition-opacity'}>
@@ -230,6 +230,8 @@ function App() {
           )}
         </div>
       </main>
+      {/* Keyed by the message: re-analyses that fall back again don't bring a dismissed toast back. */}
+      {notice && <Toast key={notice} message={notice} />}
 
       <Modal
         title="Settings"
