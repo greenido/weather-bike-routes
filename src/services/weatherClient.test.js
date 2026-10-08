@@ -223,7 +223,7 @@ describe('fetchForecasts', () => {
     // One refused request, never retried; the second route didn't ask Visual Crossing at all.
     expect(hosts()).toEqual(['weather.visualcrossing.com', 'api.open-meteo.com', 'api.open-meteo.com'])
     expect(onFallback).toHaveBeenCalledTimes(2)
-    expect(onFallback.mock.calls[0][0]).toMatch(/^Visual Crossing's daily allowance for this API key is used up \(Maximum daily cost exceeded\), so these forecasts come from Open-Meteo\. The app asks Visual Crossing again after /)
+    expect(onFallback).toHaveBeenCalledWith("Visual Crossing's daily limit is reached, so forecasts come from Open-Meteo for now.")
 
     vi.setSystemTime(Date.now() + HOUR)
     await fetchForecasts([{ lat: 47, lon: 9 }], start, end, { apiKey: 'test-key' })

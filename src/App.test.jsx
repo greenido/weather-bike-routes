@@ -259,17 +259,24 @@ describe('App', () => {
     expect(fetchMock.mock.calls.map(([url]) => new URL(url).host)).toEqual(Array(3).fill('weather.visualcrossing.com'))
   })
 
-  it("switches to Open-Meteo, and says so, when Visual Crossing's daily allowance is spent", async () => {
+  it("switches to Open-Meteo, and says so in a toast, when Visual Crossing's daily allowance is spent", async () => {
     localStorage.setItem('visualCrossingApiKey', 'test-key')
     fetchMock.mockImplementation(async (url) => (url.includes('visualcrossing.com')
       ? { ok: false, status: 429, text: async () => 'Maximum daily cost exceeded' }
       : forecast(url)))
-    await renderWithRoutes('river-loop.gpx')
+    const user = await renderWithRoutes('river-loop.gpx')
     await screen.findByRole('button', { name: 'river-loop, score 10.0 out of 10' })
-    expect(screen.getByRole('status').textContent).toMatch(/^Visual Crossing's daily allowance for this API key is used up \(Maximum daily cost exceeded\), so these forecasts come from Open-Meteo\./)
+    expect(screen.getByRole('status').textContent).toBe("Visual Crossing's daily limit is reached, so forecasts come from Open-Meteo for now.")
     expect(screen.queryByRole('alert')).toBeNull()
     // One refused request, no retries, then the whole route from Open-Meteo.
     expect(fetchMock.mock.calls.map(([url]) => new URL(url).host)).toEqual(['weather.visualcrossing.com', 'api.open-meteo.com'])
+
+    // Once dismissed, it stays away while later runs keep using Open-Meteo.
+    await user.click(screen.getByRole('button', { name: 'Dismiss' }))
+    fireEvent.change(screen.getByRole('slider'), { target: { value: 30 } })
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3))
+    await screen.findByRole('button', { name: 'river-loop, score 10.0 out of 10' })
+    expect(screen.queryByRole('status')).toBeNull()
   })
 
   it('explains the app in Help and replays the tour from there', async () => {

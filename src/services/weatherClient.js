@@ -38,6 +38,8 @@ const VISUAL_CROSSING_CONCURRENCY = 1
 const VISUAL_CROSSING_RETRY_DELAYS_MS = [2000, 5000]
 // A spent daily allowance doesn't come back in seconds, so stop asking for a while.
 const QUOTA_PAUSE_MS = 60 * 60 * 1000
+// Riders care that the forecast works, not where it came from, so the fallback gets one short line.
+const FALLBACK_NOTICE = "Visual Crossing's daily limit is reached, so forecasts come from Open-Meteo for now."
 const HOUR_MS = 60 * 60 * 1000
 const DAY_MS = 24 * HOUR_MS
 const CLEAR_VISIBILITY_KM = 20
@@ -61,7 +63,7 @@ export async function fetchForecasts(points, startMs, endMs, { apiKey = '', sign
     if (!err?.dailyLimit) throw err
     logEvent({ type: 'weather:fallback', from: 'Visual Crossing', to: 'Open-Meteo', reason: err.reason })
     const series = await fetchFrom(points, startMs, endMs, '', signal)
-    onFallback?.(fallbackNotice(err.reason))
+    onFallback?.(FALLBACK_NOTICE)
     return series
   }
 }
@@ -212,11 +214,6 @@ function dailyLimitError(reason) {
   return Object.assign(new Error(`Visual Crossing daily limit: ${reason}`), { dailyLimit: true, reason })
 }
 
-function fallbackNotice(reason) {
-  const detail = reason.trim() ? ` (${reason.trim().replace(/\.$/, '')})` : ''
-  const retryAt = new Date(visualCrossingPausedUntil).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
-  return `Visual Crossing's daily allowance for this API key is used up${detail}, so these forecasts come from Open-Meteo. The app asks Visual Crossing again after ${retryAt}.`
-}
 
 function wait(ms, signal) {
   return new Promise((resolve, reject) => {
