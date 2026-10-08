@@ -184,11 +184,11 @@ export function forecastLeadDays(startMs, now = Date.now()) {
   return Math.max(0, Math.round((startMs - now) / DAY_MS))
 }
 
-export async function analyzeRoute(route, { startMs, speedKph, stoppedMs = 0, apiKey, signal, getForecasts = fetchForecasts }) {
+export async function analyzeRoute(route, { startMs, speedKph, stoppedMs = 0, apiKey, signal, onFallback, getForecasts = fetchForecasts }) {
   const etas = estimateArrivalTimes(route.points, startMs, speedKph, stoppedMs)
   const samplePoints = route.sampleIdx.map((i) => route.points[i])
   const sampleEtas = route.sampleIdx.map((i) => etas[i])
-  const forecasts = await getForecasts(samplePoints, sampleEtas[0], sampleEtas.at(-1), { apiKey, signal })
+  const forecasts = await getForecasts(samplePoints, sampleEtas[0], sampleEtas.at(-1), { apiKey, signal, onFallback })
   const conditions = forecasts.map((series, j) => conditionsAt(series, sampleEtas[j]))
   const timeline = buildRouteTimeline(route.points, route.sampleIdx, conditions, etas)
   const summary = summarizeRide(timeline)

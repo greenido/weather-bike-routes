@@ -91,8 +91,9 @@ describe('fetchForecasts', () => {
   })
   const jsonResponse = (body, status = 200) => ({ ok: status < 400, status, json: async () => body, text: async () => JSON.stringify(body) })
   const textResponse = (body, status) => ({ ok: status < 400, status, json: async () => JSON.parse(body), text: async () => body })
-  const visualCrossingBody = { days: [{ hours: [{ datetimeEpoch: start / 1000, temp: 9 }] }] }
+  const visualCrossingBody = { queryCost: 1, days: [{ hours: [0, 1, 2, 3].map((h) => ({ datetimeEpoch: start / 1000 + h * 3600, temp: 9 })) }] }
   const tooManyAtOnce = () => textResponse('Maximum concurrency exceeded', 429)
+  const dailyCostExceeded = () => textResponse('Maximum daily cost exceeded', 429)
 
   beforeEach(() => {
     memoryCache.clear()
@@ -118,14 +119,31 @@ describe('fetchForecasts', () => {
   })
 
   it('uses Visual Crossing, one request per point, when an API key is set', async () => {
-    const fetchMock = vi.fn(async () => jsonResponse({ days: [{ hours: [{ datetimeEpoch: start / 1000, temp: 9 }] }] }))
+    const fetchMock = vi.fn(async () => jsonResponse(visualCrossingBody))
     vi.stubGlobal('fetch', fetchMock)
     const result = await fetchForecasts(points.slice(0, 2), start, end, { apiKey: 'test-key' })
     expect(fetchMock).toHaveBeenCalledTimes(2)
     const url = new URL(fetchMock.mock.calls[0][0])
-    expect(url.pathname).toMatch(/\/timeline\/45\.123,7\/\d+\/\d+$/)
+    // No dates: the plain forecast costs one record, while a range reaching into the past is billed per hour.
+    expect(url.pathname).toMatch(/\/timeline\/45\.12,7$/)
+    expect(url.searchParams.get('elements')).toContain('datetimeEpoch')
     expect(url.searchParams.get('key')).toBe('test-key')
     expect(result.map((s) => s.tempC[0])).toEqual([9, 9])
+  })
+
+  it('reuses a Visual Crossing forecast for a new start time, and shares it between nearby points', async () => {
+    const fetchMock = vi.fn(async () => jsonResponse(visualCrossingBody))
+    vi.stubGlobal('fetch', fetchMock)
+    const nearby = [{ lat: 45.501, lon: 7.501 }, { lat: 45.503, lon: 7.498 }]
+    await fetchForecasts(nearby, start, end, { apiKey: 'test-key' })
+    await fetchForecasts(nearby, start - HOUR, end - HOUR, { apiKey: 'test-key' })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("says so when the forecast doesn't reach the end of the ride", async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse(visualCrossingBody)))
+    await expect(fetchForecasts(points.slice(0, 1), start, end + 5 * HOUR, { apiKey: 'test-key' }))
+      .rejects.toThrow("The Visual Crossing forecast doesn't reach the end of this ride yet")
   })
 
   it('serves repeat requests from the cache', async () => {
@@ -186,6 +204,30 @@ describe('fetchForecasts', () => {
     await failure
     // The first point was tried three times; the second point was never requested.
     expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('falls back to Open-Meteo at a spent daily allowance, and leaves Visual Crossing alone for an hour', async () => {
+    // Two hours in the past, so the pause has run out by the time the other tests run.
+    vi.useFakeTimers({ now: Date.now() - 2 * HOUR })
+    const fetchMock = vi.fn(async (url) => (url.includes('visualcrossing.com')
+      ? dailyCostExceeded()
+      : jsonResponse([openMeteoLocation(11), openMeteoLocation(12)].slice(0, new URL(url).searchParams.get('latitude').split(',').length))))
+    vi.stubGlobal('fetch', fetchMock)
+    const hosts = () => fetchMock.mock.calls.map(([url]) => new URL(url).host)
+    const onFallback = vi.fn()
+    const routes = await Promise.all([
+      fetchForecasts(points.slice(0, 2), start, end, { apiKey: 'test-key', onFallback }),
+      fetchForecasts([{ lat: 46, lon: 8 }], start, end, { apiKey: 'test-key', onFallback }),
+    ])
+    expect(routes.flat().map((s) => s.tempC[0])).toEqual([11, 12, 11])
+    // One refused request, never retried; the second route didn't ask Visual Crossing at all.
+    expect(hosts()).toEqual(['weather.visualcrossing.com', 'api.open-meteo.com', 'api.open-meteo.com'])
+    expect(onFallback).toHaveBeenCalledTimes(2)
+    expect(onFallback.mock.calls[0][0]).toMatch(/^Visual Crossing's daily allowance for this API key is used up \(Maximum daily cost exceeded\), so these forecasts come from Open-Meteo\. The app asks Visual Crossing again after /)
+
+    vi.setSystemTime(Date.now() + HOUR)
+    await fetchForecasts([{ lat: 47, lon: 9 }], start, end, { apiKey: 'test-key' })
+    expect(hosts().filter((host) => host === 'weather.visualcrossing.com')).toHaveLength(2)
   })
 
   it('stops waiting to retry when the ride is cancelled', async () => {

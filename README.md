@@ -85,6 +85,8 @@ npm run dev
 - Forecasts are sampled about every 5 km along each route (more spread out on very long rides); the start and finish are always included.
 - Open-Meteo (default): one request per route covers all of its sample points. Forecasts reach up to 15 days ahead.
 - Visual Crossing (with a key): one Timeline API request per sample point, one at a time across all routes, because plans cap how many requests an account can run at once. A "Maximum concurrency exceeded" (429) answer is retried twice, 2 and 5 seconds apart. The first load is slower than with Open-Meteo.
+  - Cost: each request asks for the plain 15-day forecast with no dates, which Visual Crossing bills as one record per location (a date range that reaches into the past is billed per hour, 24 records a day). Forecasts are cached for 2 hours by location alone, so changing the start time doesn't fetch again, and points are snapped to ~1 km so nearby points share a request. Each response's `queryCost` is logged as a `weather:cost` event.
+  - "Maximum daily cost exceeded" (429) means the key's daily allowance is spent (1,000 records on the free plan). It isn't retried: the app gets that forecast from Open-Meteo instead, says so above the routes, and leaves Visual Crossing alone for an hour.
 - Each sample uses the forecast for the time you'll get there, interpolated between hours. Between samples, temperature is interpolated by distance and adjusted for elevation (about 0.65°C per 100 m).
 - Responses are cached in IndexedDB for 2 hours per provider, location, and date range.
 
