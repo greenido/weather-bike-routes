@@ -58,7 +58,7 @@ This app helps cyclists compare multiple GPX routes against forecasted weather t
 - `src/services/geo.js`, `src/services/format.js`: Distance/bearing math and display formatting
 - `src/services/cache.js`: IndexedDB forecast cache, the stored route library, and API key storage
 - `src/services/initialSettings.js`: The start time and speed the app opens with, from the URL or Weather 4 Bike
-- `src/services/logger.js`: In-memory log with subscriber API
+- `src/services/logger.js`: Categorized console logging
 
 ## Setup
 

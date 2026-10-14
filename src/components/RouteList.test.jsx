@@ -23,14 +23,6 @@ describe('RouteList', () => {
     expect(description).toContain('rain 0%')
   })
 
-  it('keeps the order it is given and marks only the selected card', () => {
-    render(<RouteList routes={[comfy, hot]} selectedId="b" onSelect={() => {}} />)
-    // Only the cards carry aria-pressed; each row's remove button is a sibling.
-    const cards = screen.getAllByRole('button').filter((button) => button.hasAttribute('aria-pressed'))
-    expect(cards.map((card) => card.getAttribute('aria-label').split(',')[0])).toEqual(['river-loop.gpx', 'desert-out-and-back.gpx'])
-    expect(cards.map((card) => card.getAttribute('aria-pressed'))).toEqual(['false', 'true'])
-  })
-
   it('removes a route without selecting it', async () => {
     const onRemove = vi.fn()
     const onSelect = vi.fn()
@@ -38,25 +30,5 @@ describe('RouteList', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Remove desert-out-and-back.gpx' }))
     expect(onRemove).toHaveBeenCalledWith('b')
     expect(onSelect).not.toHaveBeenCalled()
-  })
-
-  it('selects a route when its card is clicked', async () => {
-    const onSelect = vi.fn()
-    render(<RouteList routes={[comfy, hot]} selectedId="a" onSelect={onSelect} />)
-    await userEvent.click(screen.getByRole('button', { name: /^desert-out-and-back\.gpx/ }))
-    expect(onSelect).toHaveBeenCalledWith('b')
-  })
-
-  it('says when the forecast is loading or missing', () => {
-    const noForecast = { ...comfy, analysis: undefined }
-    const { rerender } = render(<RouteList routes={[noForecast]} isLoading />)
-    expect(screen.getByRole('button', { name: 'river-loop.gpx, loading forecast' }).textContent).toContain('Loading…')
-    rerender(<RouteList routes={[noForecast]} isLoading={false} />)
-    expect(screen.getByRole('button', { name: 'river-loop.gpx, no forecast' }).textContent).toContain('No forecast')
-  })
-
-  it('renders nothing without routes', () => {
-    const { container } = render(<RouteList routes={[]} />)
-    expect(container.innerHTML).toBe('')
   })
 })

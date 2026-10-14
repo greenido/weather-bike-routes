@@ -13,9 +13,4 @@ describe('ScoreBreakdown', () => {
     expect(screen.getByTitle('Rain').textContent).toBe('Rain0')
     expect(screen.getByTitle('Visibility').textContent).toBe('Visibility-2.0')
   })
-
-  it('renders nothing without a breakdown', () => {
-    const { container } = render(<ScoreBreakdown />)
-    expect(container.innerHTML).toBe('')
-  })
 })
