@@ -1,24 +1,12 @@
 /*
   File: src/services/logger.js
-  Purpose: Lightweight in-memory logger for development visibility.
+  Purpose: Lightweight console logger for development visibility.
   What it does:
   - Enriches log entries with id and ISO timestamp.
   - Outputs categorized messages to the console for key events.
-  - Publishes entries to subscribers so a UI (e.g., a developer log panel) can render them.
   Exports:
-  - logEvent(entry): enrich + console log + publish to subscribers.
-  - subscribe(callback): subscribe to log stream; returns unsubscribe.
-  - getEntries(): current in-memory entries array.
-  - clear(): clears entries and notifies subscribers.
+  - logEvent(entry): enrich + console log.
 */
-let entries = []
-const subscribers = new Set()
-
-function notify() {
-  for (const fn of subscribers) {
-    try { fn(entries) } catch (err) { console.warn('Logger subscriber callback failed', err) }
-  }
-}
 
 export function logEvent(entry) {
   const enriched = {
@@ -40,23 +28,4 @@ export function logEvent(entry) {
   } catch (err) {
     console.warn('Logger console output failed', err)
   }
-  if (subscribers.size > 0) {
-    entries = [...entries, enriched]
-    notify()
-  }
-}
-
-export function subscribe(callback) {
-  subscribers.add(callback)
-  try { callback(entries) } catch (err) { console.warn('Logger initial callback failed', err) }
-  return () => subscribers.delete(callback)
-}
-
-export function getEntries() {
-  return entries
-}
-
-export function clear() {
-  entries = []
-  notify()
 }

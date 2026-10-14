@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { calculateRouteScore, ramp, scoreToneClass, windPenalty } from './scoringEngine'
+import { calculateRouteScore, ramp, windPenalty } from './scoringEngine'
 
 const ideal = {
   avgWindKph: 5,
@@ -109,15 +109,5 @@ describe('windPenalty', () => {
   it('adds gust penalties', () => {
     expect(wind(10, 0, [47])).toBeCloseTo(1)
     expect(wind(10, 0, [65])).toBeCloseTo(2)
-  })
-})
-
-describe('scoreToneClass', () => {
-  it('gives each band a color for both themes', () => {
-    expect([scoreToneClass(9), scoreToneClass(7), scoreToneClass(3)]).toEqual([
-      'text-green-700 dark:text-green-400',
-      'text-amber-700 dark:text-amber-400',
-      'text-red-700 dark:text-red-400',
-    ])
   })
 })

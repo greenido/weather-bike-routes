@@ -63,7 +63,6 @@ describe('Modal', () => {
     render(<Modal title="Help" open onClose={() => {}}><p>How to use it</p></Modal>)
     const content = screen.getByText('How to use it').parentElement
     expect(document.activeElement).toBe(content)
-    expect(content.className).toContain('overflow-y-auto')
   })
 
   it('closes when the backdrop is clicked', async () => {

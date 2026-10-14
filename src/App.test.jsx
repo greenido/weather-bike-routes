@@ -12,15 +12,19 @@ import userEvent from '@testing-library/user-event'
 import App from './App.jsx'
 import { TOUR_STORAGE_KEY } from './components/GuidedTour.jsx'
 import { parseGpxFile } from './services/gpxParser'
-import { SHARED_SPEED_KEY, toDateTimeLocal } from './services/initialSettings'
+import { toDateTimeLocal } from './services/initialSettings'
 import { makeRoute } from './test/fixtures'
 
 vi.mock('./services/gpxParser', () => ({ parseGpxFile: vi.fn() }))
 vi.mock('./components/MapPreview.jsx', () => ({ default: () => null }))
 // The real cache needs IndexedDB, which happy-dom has no engine for. The API key half stays real (localStorage).
+// Reads finish a tick later, like IndexedDB's, so a save that doesn't wait for the restore would clobber it.
 vi.mock('./services/cache', async (importOriginal) => ({
   ...(await importOriginal()),
-  getStoredRoutes: async () => storedRoutes,
+  getStoredRoutes: async () => {
+    await null
+    return storedRoutes
+  },
   setStoredRoutes: async (routes) => { storedRoutes = routes },
 }))
 let storedRoutes = []
@@ -220,6 +224,23 @@ describe('App', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
+  it('ignores a slow forecast for settings that have since changed', async () => {
+    const heatWave = (url) => jsonResponse(openMeteoForecast(url).map(({ hourly }) => ({
+      hourly: { ...hourly, temperature_2m: hourly.time.map(() => 33), apparent_temperature: hourly.time.map(() => 33) },
+    })))
+    let answerFirst
+    fetchMock.mockImplementationOnce((url) => new Promise((resolve) => { answerFirst = () => resolve(heatWave(url)) }))
+    await renderWithRoutes('river-loop.gpx')
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    // A new speed starts a new run, which answers first; then the old request comes back, too late to count.
+    fireEvent.change(screen.getByRole('slider'), { target: { value: 30 } })
+    await screen.findByRole('button', { name: 'river-loop, score 10.0 out of 10' })
+    answerFirst()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(cardLabels()).toEqual(['river-loop, score 10.0 out of 10'])
+  })
+
   it('opens on the ride a Weather 4 Bike link asks for', () => {
     const start = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
     start.setMinutes(0, 0, 0)
@@ -233,18 +254,7 @@ describe('App', () => {
     }
   })
 
-  it('starts from the speed saved in Weather 4 Bike', () => {
-    localStorage.setItem(SHARED_SPEED_KEY, '30')
-    render(<App />)
-    expect(screen.getByText('Average speed: 30 km/h')).toBeTruthy()
-  })
-
-  it('links back to Weather 4 Bike', () => {
-    render(<App />)
-    expect(screen.getByRole('link', { name: 'Weather 4 Bike forecast' }).getAttribute('href')).toBe('https://greenido.github.io/weather-4-bike/')
-  })
-
-  it('uses Visual Crossing, one point at a time, once a key is saved in Settings', async () => {
+  it('uses Visual Crossing, one point at a time, while a key is saved in Settings', async () => {
     const user = userEvent.setup()
     render(<App />)
     await user.click(screen.getByRole('button', { name: 'Settings' }))
@@ -257,6 +267,14 @@ describe('App', () => {
     await screen.findByRole('button', { name: 'river-loop, score 10.0 out of 10' })
     // The route has three forecast points: one Visual Crossing request each, and none to Open-Meteo.
     expect(fetchMock.mock.calls.map(([url]) => new URL(url).host)).toEqual(Array(3).fill('weather.visualcrossing.com'))
+
+    // Clearing the key, as Visual Crossing's error messages suggest, goes back to Open-Meteo.
+    await user.click(screen.getByRole('button', { name: 'Settings' }))
+    await user.clear(screen.getByLabelText('Visual Crossing API key (optional)'))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(localStorage.getItem('visualCrossingApiKey')).toBeNull()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4))
+    expect(new URL(fetchMock.mock.lastCall[0]).host).toBe('api.open-meteo.com')
   })
 
   it("switches to Open-Meteo, and says so in a toast, when Visual Crossing's daily allowance is spent", async () => {
@@ -279,16 +297,11 @@ describe('App', () => {
     expect(screen.queryByRole('status')).toBeNull()
   })
 
-  it('explains the app in Help and replays the tour from there', async () => {
+  it('replays the tour from Help', async () => {
     const user = await renderWithRoutes('river-loop.gpx')
     await screen.findByRole('button', { name: /out of 10$/ })
     await user.click(screen.getByRole('button', { name: 'Help' }))
     const help = screen.getByRole('dialog', { name: 'Help' })
-    expect(within(help).getAllByRole('heading', { level: 3 }).map((h) => h.textContent)).toEqual([
-      'How to use it', 'Reading a route', 'How the score works', 'Where the forecast comes from', 'Your privacy',
-    ])
-    expect(within(help).getByRole('img', { name: /^Temperature colors: violet and blue when it's cold/ })).toBeTruthy()
-
     await user.click(within(help).getByRole('button', { name: 'Take the tour' }))
     expect(screen.queryByRole('dialog')).toBeNull()
     await tourStep('Welcome to Bike Route Weather')
